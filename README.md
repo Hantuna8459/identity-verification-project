@@ -2,6 +2,8 @@
 
 MVP foundation cho luồng xác minh danh tính V-ID: desktop tạo phiên và QR một lần, mobile capture giấy tờ/video, backend quản lý state machine và evidence mã hóa, cùng giao diện manual review mới.
 
+**Tài liệu dự án:** xem tại [`docs/`](docs/).
+
 > Trạng thái hiện tại: nền tảng ứng dụng và Docker stack chạy được end-to-end đến manual review. SyncNet lip-sync đã có service inference thật. Orchestrator AI tổng hợp cho OCR/MRZ, face matching, liveness, visual deepfake và voice verification vẫn là adapter fail-safe và chưa được phép auto-approve/auto-reject. Xem `docs/IMPLEMENTATION_STATUS.md`.
 
 ## Thành phần
@@ -9,7 +11,7 @@ MVP foundation cho luồng xác minh danh tính V-ID: desktop tạo phiên và Q
 - `frontend/`: Next.js 16, UI mới tông trắng/đỏ cho desktop, mobile capture và admin.
 - `backend/app/`: FastAPI, domain/use case, API v2, PostgreSQL, evidence storage mã hóa AES-GCM và purge worker.
 - `backend/ai_modules/lipsync/`: microservice SyncNet/S3FD độc lập.
-- `models/`: chỉ chứa manifest; model binaries không được commit.
+- `models/`: chứa manifest và model YOLO CCCD được commit như một ngoại lệ; các model khác được tải ở build time.
 - `scripts/models.py`: tải/kiểm tra model ở local hoặc build time; runtime không tải model.
 - `compose.yml`: PostgreSQL, backend, purge worker, lip-sync và frontend.
 
