@@ -1,0 +1,103 @@
+from __future__ import annotations
+
+from fastapi.testclient import TestClient
+
+VID_HEADERS = {"X-V-ID-Client-Key": "test-vid-key"}
+REVIEWER_HEADERS = {"Authorization": "Bearer test-reviewer-token"}
+
+
+def create_claimed_session(client: TestClient, document_type: str = "CAN_CUOC_2024") -> dict:
+    created = client.post(
+        "/api/v2/ekyc/sessions",
+        headers=VID_HEADERS,
+        json={"subject_ref": "opaque-user-001", "document_type": document_type},
+    )
+    assert created.status_code == 201, created.text
+    session = created.json()
+    desktop_headers = {"X-Session-Token": session["session_token"]}
+    handoff = client.post(
+        f"/api/v2/ekyc/sessions/{session['session_id']}/handoffs",
+        headers=desktop_headers,
+    )
+    assert handoff.status_code == 200, handoff.text
+    handoff_data = handoff.json()
+    claim = client.post(
+        "/api/v2/ekyc/handoffs/claim",
+        json={"token": handoff_data["handoff_token"]},
+    )
+    assert claim.status_code == 200, claim.text
+    return {**session, **claim.json(), "desktop_headers": desktop_headers, "handoff": handoff_data}
+
+
+def upload(client: TestClient, capture_token: str, kind: str, media_type: str) -> None:
+    response = client.post(
+        f"/api/v2/ekyc/capture/evidence/{kind}",
+        headers={"Authorization": f"Bearer {capture_token}"},
+        files={"file": (f"{kind.lower()}.bin", b"synthetic-evidence-content", media_type)},
+    )
+    assert response.status_code == 201, response.text
+
+
+def test_full_cccd_qr_capture_and_manual_review(client: TestClient) -> None:
+    flow = create_claimed_session(client)
+    capture_headers = {"Authorization": f"Bearer {flow['capture_token']}"}
+
+    replay = client.post(
+        "/api/v2/ekyc/handoffs/claim",
+        json={"token": flow["handoff"]["handoff_token"]},
+    )
+    assert replay.status_code == 401
+
+    challenge = client.post("/api/v2/ekyc/capture/voice-challenge", headers=capture_headers)
+    assert challenge.status_code == 200
+    assert len(challenge.json()["challenge"].split()) == 6
+
+    upload(client, flow["capture_token"], "DOCUMENT_FRONT", "image/jpeg")
+    upload(client, flow["capture_token"], "DOCUMENT_BACK", "image/jpeg")
+    upload(client, flow["capture_token"], "SELFIE_VIDEO", "video/webm")
+
+    submitted = client.post("/api/v2/ekyc/capture/submit", headers=capture_headers)
+    assert submitted.status_code == 200, submitted.text
+    assert submitted.json()["stage"] == "MANUAL_REVIEW"
+
+    reviews = client.get("/api/v2/reviews", headers=REVIEWER_HEADERS)
+    assert reviews.status_code == 200
+    assert len(reviews.json()) == 1
+    assert reviews.json()[0]["session_id"] == flow["session_id"]
+
+    decision = client.post(
+        f"/api/v2/reviews/{flow['session_id']}/decisions",
+        headers=REVIEWER_HEADERS,
+        json={"decision": "APPROVED", "notes": "Synthetic fixture reviewed successfully."},
+    )
+    assert decision.status_code == 200, decision.text
+    assert decision.json()["decision"] == "APPROVED"
+
+    status = client.get(
+        f"/api/v2/ekyc/sessions/{flow['session_id']}",
+        headers=flow["desktop_headers"],
+    )
+    assert status.status_code == 200
+    assert status.json()["stage"] == "COMPLETED"
+    assert status.json()["decision"] == "APPROVED"
+
+
+def test_passport_requires_single_td3_page(client: TestClient) -> None:
+    flow = create_claimed_session(client, "PASSPORT_TD3")
+    capture_headers = {"Authorization": f"Bearer {flow['capture_token']}"}
+    client.post("/api/v2/ekyc/capture/voice-challenge", headers=capture_headers)
+    upload(client, flow["capture_token"], "PASSPORT_PAGE", "image/png")
+    upload(client, flow["capture_token"], "SELFIE_VIDEO", "video/mp4")
+    submitted = client.post("/api/v2/ekyc/capture/submit", headers=capture_headers)
+    assert submitted.status_code == 200, submitted.text
+    assert submitted.json()["stage"] == "MANUAL_REVIEW"
+
+
+def test_submit_reports_missing_evidence(client: TestClient) -> None:
+    flow = create_claimed_session(client)
+    capture_headers = {"Authorization": f"Bearer {flow['capture_token']}"}
+    client.post("/api/v2/ekyc/capture/voice-challenge", headers=capture_headers)
+    upload(client, flow["capture_token"], "DOCUMENT_FRONT", "image/jpeg")
+    response = client.post("/api/v2/ekyc/capture/submit", headers=capture_headers)
+    assert response.status_code == 409
+    assert "DOCUMENT_BACK" in response.json()["detail"]

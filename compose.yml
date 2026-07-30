@@ -1,0 +1,136 @@
+name: vid-ekyc
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vid_ekyc}
+      POSTGRES_USER: ${POSTGRES_USER:-vid}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - vid-db:/var/lib/postgresql/data
+    networks: [vid-internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vid} -d ${POSTGRES_DB:-vid_ekyc}"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+
+  backend:
+    image: vid-ekyc-backend:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      secrets: [host_ca_bundle]
+      additional_contexts:
+        cccd_artifact: ${CCCD_MODEL_DIR:-./.private-models}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      lipsync:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+    environment: &backend-environment
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-vid}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-vid_ekyc}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      TOKEN_SECRET: ${TOKEN_SECRET:?Set TOKEN_SECRET in .env}
+      EVIDENCE_KEY: ${EVIDENCE_KEY:?Set EVIDENCE_KEY in .env}
+      VID_CLIENT_KEY: ${VID_CLIENT_KEY:-local-vid-client-key}
+      REVIEWER_TOKEN: ${REVIEWER_TOKEN:-local-reviewer-token}
+      EVIDENCE_DIR: /app/data/evidence
+      MODEL_DIR: /app/models
+      REQUIRE_MODELS: "true"
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      LIPSYNC_URL: http://lipsync:8002
+      PURGE_INTERVAL_HOURS: ${PURGE_INTERVAL_HOURS:-24}
+      DEVELOPMENT_RETENTION_HOURS: ${DEVELOPMENT_RETENTION_HOURS:-168}
+      WEBHOOK_ALLOWLIST: ${WEBHOOK_ALLOWLIST:-}
+    volumes:
+      - vid-evidence:/app/data/evidence
+    networks: [vid-internal, vid-edge]
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8000/api/v2/utils/health-check"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  purge:
+    image: vid-ekyc-backend:${TAG:-latest}
+    restart: unless-stopped
+    command: ["python", "-m", "app.purge_worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    environment: *backend-environment
+    volumes:
+      - vid-evidence:/app/data/evidence
+    networks: [vid-internal]
+    healthcheck:
+      disable: true
+
+  lipsync:
+    image: vid-ekyc-lipsync:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: backend/ai_modules/lipsync/Dockerfile
+      secrets: [host_ca_bundle]
+    restart: unless-stopped
+    environment:
+      DEVICE: ${AI_DEVICE:-cpu}
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      S3FD_WEIGHTS: /app/weights/sfd_face.pth
+      SYNCNET_WEIGHTS: /app/weights/syncnet_v2.model
+    networks: [vid-internal]
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 120s
+
+  frontend:
+    image: vid-ekyc-frontend:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      secrets: [host_ca_bundle]
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v2}
+        NEXT_PUBLIC_VID_CLIENT_KEY: ${VID_CLIENT_KEY:-local-vid-client-key}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
+    networks: [vid-edge]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  vid-db:
+  vid-evidence:
+
+networks:
+  vid-internal:
+    internal: true
+  vid-edge:
+
+secrets:
+  host_ca_bundle:
+    file: ${HOST_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}

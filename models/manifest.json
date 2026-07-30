@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0",
+  "models": [
+    {
+      "id": "cccd-layout-yolov11",
+      "purpose": "CCCD layout, field and corner detection",
+      "path": "cccd_layout_yolov11.pt",
+      "source": "project-reference-artifact",
+      "delivery": "buildkit-secret:cccd_layout_model",
+      "revision": "V-ID-initial-import",
+      "sha256": "343be4b5395fe08798cb96b32e020f029cff7af646b8eda7ebaaca4ace98c6d8",
+      "size_bytes": 5549978,
+      "license": "PROJECT_REVIEW_REQUIRED",
+      "required": true
+    },
+    {
+      "id": "minifasnet-v2",
+      "purpose": "Passive face liveness",
+      "path": "minifasnet.onnx",
+      "url": "https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV2.onnx",
+      "revision": "weights-release",
+      "sha256": "b32929adc2d9c34b9486f8c4c7bc97c1b69bc0ea9befefc380e4faae4e463907",
+      "size_bytes": 1743581,
+      "license": "UPSTREAM_REVIEW_REQUIRED",
+      "required": true
+    },
+    {
+      "id": "deepfake-detector-v2-q4",
+      "purpose": "Visual deepfake detection",
+      "path": "deepfake_detector.onnx",
+      "url": "https://huggingface.co/onnx-community/Deep-Fake-Detector-v2-Model-ONNX/resolve/main/onnx/model_q4.onnx",
+      "revision": "main-imported-2026-07-30",
+      "sha256": "e239476e94466b225d490147c2f3c1ea64e969f0e09ae4f772e15a16d8e393a9",
+      "size_bytes": 56757898,
+      "license": "UPSTREAM_REVIEW_REQUIRED",
+      "required": true
+    },
+    {
+      "id": "syncnet-v2",
+      "purpose": "Audio-video lip synchronization",
+      "path": "lipsync/syncnet_v2.model",
+      "url": "https://huggingface.co/lithiumice/syncnet/resolve/main/syncnet_v2.model",
+      "revision": "main-imported-2026-07-30",
+      "sha256": "961e8696f888fce4f3f3a6c3d5b3267cf5b343100b238e79b2659bff2c605442",
+      "size_bytes": 54573114,
+      "license": "UPSTREAM_REVIEW_REQUIRED",
+      "required": true
+    },
+    {
+      "id": "s3fd-face",
+      "purpose": "Face tracking for lip synchronization",
+      "path": "lipsync/sfd_face.pth",
+      "url": "https://huggingface.co/lithiumice/syncnet/resolve/main/sfd_face.pth",
+      "revision": "main-imported-2026-07-30",
+      "sha256": "d54a87c2b7543b64729c9a25eafd188da15fd3f6e02f0ecec76ae1b30d86c491",
+      "size_bytes": 89844381,
+      "license": "UPSTREAM_REVIEW_REQUIRED",
+      "required": true
+    }
+  ]
+}
