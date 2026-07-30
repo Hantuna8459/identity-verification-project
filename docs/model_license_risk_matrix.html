@@ -1,0 +1,1046 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Ma trận đánh giá rủi ro giấy phép model cho hệ thống eKYC">
+  <title>Ma trận rủi ro giấy phép Model · eKYC</title>
+  <style>
+    :root {
+      --ink: #132a2a;
+      --muted: #627271;
+      --paper: #f5f3ed;
+      --surface: rgba(255, 255, 255, 0.82);
+      --line: rgba(19, 42, 42, 0.11);
+      --safe: #168466;
+      --safe-soft: #dff2e9;
+      --gray: #b67618;
+      --gray-soft: #fff0cd;
+      --danger: #c74d3e;
+      --danger-soft: #f9dfd9;
+      --navy: #173e45;
+      --shadow: 0 16px 48px rgba(27, 52, 51, 0.09);
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      background: var(--paper);
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 82% 3%, rgba(22, 132, 102, .11), transparent 27rem),
+        radial-gradient(circle at 7% 25%, rgba(197, 153, 74, .09), transparent 25rem),
+        var(--paper);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    button, input { font: inherit; }
+
+    .shell {
+      width: min(1440px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    .masthead {
+      padding: 26px 0 0;
+    }
+
+    .topline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 780;
+      letter-spacing: -.02em;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      color: white;
+      border-radius: 12px;
+      background: var(--navy);
+      box-shadow: 0 8px 22px rgba(23, 62, 69, .2);
+    }
+
+    .brand-mark svg { width: 20px; }
+
+    .audit-date {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(360px, .7fr);
+      gap: 54px;
+      align-items: end;
+      padding: 72px 0 55px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 17px;
+      color: var(--safe);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      width: 24px;
+      height: 2px;
+      content: "";
+      background: currentColor;
+    }
+
+    h1 {
+      max-width: 850px;
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(48px, 6.5vw, 88px);
+      font-weight: 500;
+      letter-spacing: -.055em;
+      line-height: .96;
+    }
+
+    h1 em {
+      color: var(--safe);
+      font-weight: inherit;
+    }
+
+    .hero-copy {
+      max-width: 650px;
+      margin: 25px 0 0;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .verdict {
+      position: relative;
+      overflow: hidden;
+      padding: 25px;
+      color: white;
+      border-radius: 24px;
+      background: var(--navy);
+      box-shadow: var(--shadow);
+    }
+
+    .verdict::after {
+      position: absolute;
+      right: -42px;
+      bottom: -80px;
+      width: 200px;
+      height: 200px;
+      content: "";
+      border: 35px solid rgba(255, 255, 255, .06);
+      border-radius: 50%;
+    }
+
+    .verdict-label {
+      position: relative;
+      z-index: 1;
+      color: rgba(255, 255, 255, .58);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+
+    .verdict h2 {
+      position: relative;
+      z-index: 1;
+      margin: 9px 0 8px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 30px;
+      font-weight: 500;
+      line-height: 1.05;
+    }
+
+    .verdict p {
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      color: rgba(255, 255, 255, .72);
+      font-size: 14px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      overflow: hidden;
+      margin-bottom: 38px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .metric {
+      min-height: 138px;
+      padding: 25px 27px;
+      border-right: 1px solid var(--line);
+    }
+
+    .metric:last-child { border: 0; }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+
+    .metric-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-top: 13px;
+    }
+
+    .metric strong {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 48px;
+      font-weight: 500;
+      line-height: .9;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .metric.safe strong { color: var(--safe); }
+    .metric.gray strong { color: var(--gray); }
+    .metric.danger strong { color: var(--danger); }
+
+    .toolbar {
+      position: sticky;
+      z-index: 20;
+      top: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 22px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(250, 249, 245, .9);
+      box-shadow: 0 10px 35px rgba(27, 52, 51, .08);
+      backdrop-filter: blur(16px);
+    }
+
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .filter-btn, .print-btn {
+      min-height: 40px;
+      padding: 0 15px;
+      color: var(--muted);
+      border: 0;
+      border-radius: 11px;
+      background: transparent;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+      transition: .2s ease;
+    }
+
+    .filter-btn:hover { color: var(--ink); background: white; }
+
+    .filter-btn.active {
+      color: white;
+      background: var(--navy);
+      box-shadow: 0 6px 16px rgba(23, 62, 69, .18);
+    }
+
+    .toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .search-wrap {
+      position: relative;
+    }
+
+    .search-wrap svg {
+      position: absolute;
+      top: 50%;
+      left: 13px;
+      width: 16px;
+      color: var(--muted);
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+
+    #search {
+      width: 220px;
+      height: 40px;
+      padding: 0 14px 0 38px;
+      color: var(--ink);
+      outline: 0;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: white;
+      font-size: 13px;
+    }
+
+    #search:focus {
+      border-color: rgba(22, 132, 102, .5);
+      box-shadow: 0 0 0 3px rgba(22, 132, 102, .08);
+    }
+
+    .print-btn {
+      display: grid;
+      width: 40px;
+      padding: 0;
+      place-items: center;
+      border: 1px solid var(--line);
+      background: white;
+    }
+
+    .print-btn svg { width: 17px; }
+
+    .matrix {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 15px;
+      align-items: start;
+    }
+
+    .zone {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, .5);
+    }
+
+    .zone-header {
+      position: relative;
+      min-height: 162px;
+      padding: 24px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .zone-safe .zone-header { background: var(--safe-soft); }
+    .zone-gray .zone-header { background: var(--gray-soft); }
+    .zone-danger .zone-header { background: var(--danger-soft); }
+
+    .zone-index {
+      position: absolute;
+      top: 20px;
+      right: 22px;
+      color: rgba(19, 42, 42, .15);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 62px;
+      line-height: 1;
+    }
+
+    .zone-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 28px;
+      font-weight: 500;
+    }
+
+    .status-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      box-shadow: 0 0 0 5px rgba(255, 255, 255, .5);
+    }
+
+    .zone-safe .status-dot { background: var(--safe); }
+    .zone-gray .status-dot { background: var(--gray); }
+    .zone-danger .status-dot { background: var(--danger); }
+
+    .zone-desc {
+      max-width: 330px;
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .zone-count {
+      display: inline-flex;
+      align-items: center;
+      height: 25px;
+      margin-top: 15px;
+      padding: 0 10px;
+      color: var(--ink);
+      border: 1px solid rgba(19, 42, 42, .1);
+      border-radius: 99px;
+      background: rgba(255, 255, 255, .55);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .cards {
+      display: grid;
+      gap: 10px;
+      padding: 10px;
+    }
+
+    .model-card {
+      position: relative;
+      padding: 17px;
+      border: 1px solid rgba(19, 42, 42, .09);
+      border-radius: 15px;
+      background: rgba(255, 255, 255, .92);
+      box-shadow: 0 5px 18px rgba(19, 42, 42, .04);
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+    .model-card:hover {
+      z-index: 2;
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px rgba(19, 42, 42, .09);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .model-name {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 790;
+      letter-spacing: -.015em;
+      line-height: 1.25;
+    }
+
+    .model-role {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .type-badge {
+      flex: 0 0 auto;
+      padding: 4px 8px;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #f8f8f5;
+      font-size: 9px;
+      font-weight: 850;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+
+    .license {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin: 15px 0 0;
+      padding-top: 13px;
+      color: var(--ink);
+      border-top: 1px solid var(--line);
+      font-size: 12px;
+      font-weight: 720;
+    }
+
+    .license svg {
+      width: 14px;
+      color: var(--muted);
+    }
+
+    .action {
+      margin: 9px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .action strong { color: var(--ink); font-weight: 750; }
+
+    .risk-reason {
+      margin: 12px 0 0;
+      padding: 11px 12px;
+      color: #78352d;
+      border-left: 3px solid var(--danger);
+      border-radius: 0 9px 9px 0;
+      background: var(--danger-soft);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .risk-reason strong {
+      display: block;
+      margin-bottom: 2px;
+      color: #632a24;
+      font-weight: 800;
+    }
+
+    .risk-reason.reason-gray {
+      color: #76501a;
+      border-left-color: var(--gray);
+      background: var(--gray-soft);
+    }
+
+    .risk-reason.reason-gray strong { color: #62400f; }
+
+    .empty {
+      grid-column: 1 / -1;
+      padding: 48px 20px;
+      color: var(--muted);
+      text-align: center;
+      border: 1px dashed var(--line);
+      border-radius: 14px;
+      font-size: 13px;
+    }
+
+    .methodology {
+      display: grid;
+      grid-template-columns: .8fr 1.2fr;
+      gap: 50px;
+      margin: 70px 0 45px;
+      padding: 46px;
+      color: white;
+      border-radius: 26px;
+      background: var(--navy);
+      box-shadow: var(--shadow);
+    }
+
+    .methodology h2 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 36px;
+      font-weight: 500;
+      line-height: 1.08;
+    }
+
+    .methodology-intro {
+      margin: 14px 0 0;
+      color: rgba(255, 255, 255, .62);
+      font-size: 13px;
+    }
+
+    .criteria {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 13px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      counter-reset: criteria;
+    }
+
+    .criteria li {
+      position: relative;
+      padding: 18px 18px 18px 51px;
+      border: 1px solid rgba(255, 255, 255, .1);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .05);
+      counter-increment: criteria;
+      font-size: 13px;
+    }
+
+    .criteria li::before {
+      position: absolute;
+      top: 16px;
+      left: 17px;
+      display: grid;
+      width: 24px;
+      height: 24px;
+      place-items: center;
+      content: "0" counter(criteria);
+      color: #aee0ce;
+      border-radius: 50%;
+      background: rgba(174, 224, 206, .1);
+      font-size: 9px;
+      font-weight: 800;
+    }
+
+    .criteria strong {
+      display: block;
+      margin-bottom: 3px;
+      color: white;
+    }
+
+    .criteria span { color: rgba(255, 255, 255, .58); }
+
+    .priority {
+      margin-bottom: 70px;
+    }
+
+    .section-kicker {
+      color: var(--danger);
+      font-size: 11px;
+      font-weight: 850;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+
+    .priority h2 {
+      margin: 8px 0 24px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 38px;
+      font-weight: 500;
+      letter-spacing: -.025em;
+    }
+
+    .priority-list {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--surface);
+      list-style: none;
+    }
+
+    .priority-list li {
+      min-height: 190px;
+      padding: 24px;
+      border-right: 1px solid var(--line);
+      counter-increment: priority;
+    }
+
+    .priority-list li:last-child { border: 0; }
+
+    .priority-no {
+      display: grid;
+      width: 31px;
+      height: 31px;
+      margin-bottom: 24px;
+      place-items: center;
+      color: white;
+      border-radius: 9px;
+      background: var(--danger);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .priority-list strong {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 14px;
+    }
+
+    .priority-list p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 30px;
+      padding: 25px 0 38px;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      font-size: 11px;
+    }
+
+    footer p { max-width: 780px; margin: 0; }
+
+    @media (max-width: 1100px) {
+      .hero { grid-template-columns: 1fr; }
+      .verdict { max-width: 620px; }
+      .summary { grid-template-columns: repeat(2, 1fr); }
+      .metric:nth-child(2) { border-right: 0; }
+      .metric:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+      .matrix { grid-template-columns: 1fr; }
+      .zone { display: grid; grid-template-columns: 300px 1fr; }
+      .zone-header { min-height: 100%; border-right: 1px solid var(--line); border-bottom: 0; }
+      .cards { grid-template-columns: repeat(2, 1fr); }
+      .methodology { grid-template-columns: 1fr; }
+      .priority-list { grid-template-columns: repeat(2, 1fr); }
+      .priority-list li:nth-child(2) { border-right: 0; }
+      .priority-list li:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+    }
+
+    @media (max-width: 760px) {
+      .shell { width: min(100% - 24px, 1440px); }
+      .topline { align-items: flex-start; }
+      .audit-date { max-width: 150px; text-align: right; }
+      .hero { gap: 30px; padding: 48px 0 38px; }
+      h1 { font-size: clamp(44px, 15vw, 66px); }
+      .summary { grid-template-columns: 1fr 1fr; }
+      .metric { min-height: 116px; padding: 20px; }
+      .metric strong { font-size: 39px; }
+      .toolbar { position: static; display: grid; }
+      .toolbar-actions { width: 100%; }
+      .search-wrap { flex: 1; }
+      #search { width: 100%; }
+      .zone { display: block; }
+      .zone-header { border-right: 0; border-bottom: 1px solid var(--line); }
+      .cards { grid-template-columns: 1fr; }
+      .methodology { gap: 28px; padding: 28px 22px; }
+      .criteria { grid-template-columns: 1fr; }
+      .priority-list { grid-template-columns: 1fr; }
+      .priority-list li { min-height: 0; border-right: 0; border-bottom: 1px solid var(--line); }
+      footer { display: block; }
+      footer p + p { margin-top: 10px; }
+    }
+
+    @media print {
+      @page { size: A3 landscape; margin: 10mm; }
+      body { background: white; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .shell { width: 100%; }
+      .masthead { padding-top: 0; }
+      .hero { padding: 28px 0; }
+      h1 { font-size: 50px; }
+      .toolbar { display: none; }
+      .matrix { grid-template-columns: repeat(3, 1fr); }
+      .zone { display: block; break-inside: avoid; }
+      .cards { display: block; }
+      .model-card { margin-bottom: 7px; break-inside: avoid; box-shadow: none; }
+      .methodology, .priority { break-before: page; }
+      .model-card:hover { transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="masthead shell">
+    <div class="topline">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3 4.8 6v5.2c0 4.5 3 8.6 7.2 9.8 4.2-1.2 7.2-5.3 7.2-9.8V6L12 3Z"/>
+            <path d="m8.5 12 2.2 2.2 4.8-4.8"/>
+          </svg>
+        </span>
+        <span>Model Governance / eKYC</span>
+      </div>
+      <div class="audit-date">Nguồn audit: 23.07.2026 · Trình bày: 24.07.2026</div>
+    </div>
+
+    <div class="hero">
+      <div>
+        <div class="eyebrow">License risk matrix</div>
+        <h1>Bản đồ <em>an toàn</em><br>cho hệ sinh thái AI</h1>
+        <p class="hero-copy">
+          Phân loại 14 model và weight đang còn trong phạm vi dự án theo khả năng sử
+          dụng thương mại và độ rõ ràng của nguồn gốc — dành cho quyết định triển khai eKYC.
+        </p>
+      </div>
+      <aside class="verdict">
+        <div class="verdict-label">Kết luận cấp danh mục</div>
+        <h2>Chưa đủ điều kiện<br>Go-live thương mại</h2>
+        <p>
+          Năm nhóm model đang là blocker trực tiếp. Cần thay thế, xin giấy phép
+          hoặc hoàn tất provenance trước khi phát hành.
+        </p>
+      </aside>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="summary" aria-label="Tóm tắt danh mục">
+      <div class="metric">
+        <div class="metric-label">Tổng danh mục</div>
+        <div class="metric-row"><strong>14</strong><span>model / weight</span></div>
+      </div>
+      <div class="metric safe">
+        <div class="metric-label">Vùng an toàn</div>
+        <div class="metric-row"><strong id="safeMetric">8</strong><span>có thể tiến tới</span></div>
+      </div>
+      <div class="metric gray">
+        <div class="metric-label">Vùng xám</div>
+        <div class="metric-row"><strong id="grayMetric">1</strong><span>cần xác minh</span></div>
+      </div>
+      <div class="metric danger">
+        <div class="metric-label">Vùng nguy hiểm</div>
+        <div class="metric-row"><strong id="dangerMetric">5</strong><span>blocker</span></div>
+      </div>
+    </section>
+
+    <nav class="toolbar" aria-label="Bộ lọc ma trận">
+      <div class="filters">
+        <button class="filter-btn active" data-filter="all">Tất cả</button>
+        <button class="filter-btn" data-filter="default">Đang dùng mặc định</button>
+        <button class="filter-btn" data-filter="optional">Tuỳ chọn / test</button>
+      </div>
+      <div class="toolbar-actions">
+        <label class="search-wrap" aria-label="Tìm model">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>
+          </svg>
+          <input id="search" type="search" placeholder="Tìm model, license…">
+        </label>
+        <button class="print-btn" onclick="window.print()" aria-label="In hoặc lưu PDF" title="In / Lưu PDF">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+            <path d="M6 14h12v7H6z"/>
+          </svg>
+        </button>
+      </div>
+    </nav>
+
+    <section class="matrix" aria-label="Ma trận rủi ro model">
+      <article class="zone zone-safe" data-zone="safe">
+        <header class="zone-header">
+          <span class="zone-index">01</span>
+          <h2 class="zone-title"><span class="status-dot"></span>Vùng an toàn</h2>
+          <p class="zone-desc">
+            Có cơ sở cho sử dụng thương mại. Vẫn phải giữ notice, pin phiên bản/hash
+            và hoàn thiện hồ sơ nguồn gốc cho từng artifact.
+          </p>
+          <span class="zone-count"><span data-count="safe">8</span>&nbsp; mục</span>
+        </header>
+        <div class="cards" id="safeCards"></div>
+      </article>
+
+      <article class="zone zone-gray" data-zone="gray">
+        <header class="zone-header">
+          <span class="zone-index">02</span>
+          <h2 class="zone-title"><span class="status-dot"></span>Vùng xám</h2>
+          <p class="zone-desc">
+            Chưa phải blocker tuyệt đối, nhưng thiếu chứng cứ artifact hoặc xác nhận
+            license cụ thể cho weight được tải về.
+          </p>
+          <span class="zone-count"><span data-count="gray">1</span>&nbsp; mục</span>
+        </header>
+        <div class="cards" id="grayCards"></div>
+      </article>
+
+      <article class="zone zone-danger" data-zone="danger">
+        <header class="zone-header">
+          <span class="zone-index">03</span>
+          <h2 class="zone-title"><span class="status-dot"></span>Vùng nguy hiểm</h2>
+          <p class="zone-desc">
+            Không đưa vào bản phát hành thương mại. Cần thay thế, mua license hoặc
+            có văn bản cho phép và provenance đầy đủ.
+          </p>
+          <span class="zone-count"><span data-count="danger">5</span>&nbsp; mục</span>
+        </header>
+        <div class="cards" id="dangerCards"></div>
+      </article>
+    </section>
+
+    <section class="methodology">
+      <div>
+        <div class="eyebrow">Cách đọc ma trận</div>
+        <h2>License hợp lệ chưa đồng nghĩa với eKYC hợp lệ.</h2>
+        <p class="methodology-intro">
+          Màu sắc thể hiện mức sẵn sàng về license và provenance, không phải đánh
+          giá độ chính xác, thiên lệch hay tuân thủ pháp luật sinh trắc học.
+        </p>
+      </div>
+      <ol class="criteria">
+        <li><strong>Quyền thương mại</strong><span>License hoặc hợp đồng có cho phép business use?</span></li>
+        <li><strong>Provenance</strong><span>Có nguồn, revision, hash, dataset và tác giả rõ ràng?</span></li>
+        <li><strong>Nghĩa vụ phân phối</strong><span>Có notice, source disclosure hoặc điều kiện copyleft?</span></li>
+        <li><strong>Tính toàn vẹn artifact</strong><span>Build có pin immutable revision và kiểm tra SHA-256?</span></li>
+      </ol>
+    </section>
+
+    <section class="priority">
+      <div class="section-kicker">Critical path</div>
+      <h2>Bốn hành động cần ưu tiên trước Go-live</h2>
+      <ol class="priority-list">
+        <li>
+          <span class="priority-no">01</span>
+          <strong>Thay hoặc mua license InsightFace</strong>
+          <p>Áp dụng cho cả <code>buffalo_l</code> và <code>glintr100</code>; code MIT không mở quyền thương mại cho pretrained weights.</p>
+        </li>
+        <li>
+          <span class="priority-no">02</span>
+          <strong>Cách ly custom YOLO11</strong>
+          <p>Xác minh tác giả, dataset, source/config và chọn lộ trình AGPL hoặc Enterprise trước khi dùng.</p>
+        </li>
+        <li>
+          <span class="priority-no">03</span>
+          <strong>Tắt SyncNet &amp; ViStreamASR</strong>
+          <p>Không enable hai đường chạy này cho đến khi có license/checkpoint chính xác hoặc model thay thế.</p>
+        </li>
+        <li>
+          <span class="priority-no">04</span>
+          <strong>Thiết lập Model BOM</strong>
+          <p>Pin immutable revision + SHA-256, lưu license/NOTICE, dataset provenance và phê duyệt cho từng artifact.</p>
+        </li>
+      </ol>
+    </section>
+  </main>
+
+  <footer class="shell">
+    <p>
+      Tổng hợp từ <strong>MODEL_LICENSE_REPORT.md</strong>, audit ngày 23.07.2026;
+      đã loại các LLM không còn thuộc phạm vi dự án. Phân nhóm này phục vụ quản trị
+      kỹ thuật, không thay thế tư vấn pháp lý.
+    </p>
+    <p>Model License Matrix · eKYC Governance</p>
+  </footer>
+
+  <script>
+    const models = [
+      {
+        zone: "safe", name: "MiniFASNetV2 ONNX", role: "Passive face liveness · mặc định",
+        type: "local", usage: "default", badge: "Local", license: "Apache-2.0",
+        action: "Giữ license/notice; pin revision nguồn và hash của weight."
+      },
+      {
+        zone: "safe", name: "MiniFASNetV2 INT8", role: "Bản quantized derivative · committed",
+        type: "local", usage: "default", badge: "Local", license: "Apache-2.0 kế thừa",
+        action: "Lưu source hash, lệnh quantize, phiên bản tool và attribution."
+      },
+      {
+        zone: "safe", name: "Deep-Fake-Detector-v2 Q4", role: "Frame-level deepfake score",
+        type: "local", usage: "default", badge: "Local", license: "Apache-2.0",
+        action: "Giữ attribution; kiểm thử domain eKYC vì license không bảo đảm chất lượng."
+      },
+      {
+        zone: "safe", name: "RapidOCR PP-OCRv6 small", role: "OCR detection + Vietnamese recognition",
+        type: "local", usage: "default", badge: "Local", license: "Apache-2.0",
+        action: "Pin package, URL model và SHA-256 để tránh artifact thay đổi."
+      },
+      {
+        zone: "safe", name: "RapidOCR PP-OCRv5 Latin", role: "OCR recognition cấu hình thay thế",
+        type: "local", usage: "optional", badge: "Tuỳ chọn", license: "Apache-2.0",
+        action: "Pin đúng artifact và hash nếu kích hoạt đường chạy này."
+      },
+      {
+        zone: "safe", name: "DBNet / PaddleOCR DB++", role: "Text detector cho VietOCR stack",
+        type: "local", usage: "optional", badge: "Tuỳ chọn", license: "Apache-2.0",
+        action: "Chỉ dùng artifact chính thức; ghi model ID và hash khi enable."
+      },
+      {
+        zone: "safe", name: "Whisper small / faster-whisper", role: "ASR fallback tại runtime",
+        type: "local", usage: "default", badge: "Local", license: "MIT",
+        action: "Giữ MIT notice; pin revision bản CTranslate2 và hash cache."
+      },
+      {
+        zone: "safe", name: "VinAI PhoWhisper-small", role: "ASR refinement · hybrid speech mặc định",
+        type: "local", usage: "default", badge: "Local", license: "BSD-3-Clause",
+        action: "Pin Hugging Face revision/hash và giữ license + non-endorsement."
+      },
+      {
+        zone: "gray", name: "VietOCR vgg_transformer", role: "OCR recognizer tự tải từ vocr.vn",
+        type: "local", usage: "optional", badge: "Tuỳ chọn", license: "Apache-2.0 (repo)",
+        reason: "Repository/package thường được công bố theo Apache-2.0, nhưng weight .pth tải từ vocr.vn chưa được dự án lưu license riêng, nguồn chính xác, revision hoặc checksum.",
+        action: "Xác minh license riêng của weight; lưu URL, revision và SHA-256."
+      },
+      {
+        zone: "danger", name: "CCCD layout YOLO11", role: "Document corner / field detector · mặc định",
+        type: "local", usage: "default", badge: "Blocker", license: "AGPL-3.0 marker",
+        reason: "Binary có metadata AGPL-3.0. Báo cáo không tìm thấy source model, training code/config, nguồn gốc dataset, tác giả hay tuyên bố license riêng cho weight.",
+        action: "Cách ly khỏi proprietary release; làm rõ provenance và lộ trình license."
+      },
+      {
+        zone: "danger", name: "InsightFace buffalo_l", role: "Face detection + recognition · mặc định",
+        type: "local", usage: "default", badge: "Blocker", license: "Research-only weights",
+        reason: "Pretrained weights của InsightFace được công bố chỉ dành cho nghiên cứu phi thương mại; giấy phép MIT của code không áp dụng cho các weight này.",
+        action: "Mua license thương mại hoặc thay cả detection và recognition weights."
+      },
+      {
+        zone: "danger", name: "InsightFace glintr100", role: "Accuracy profile thay thế",
+        type: "local", usage: "optional", badge: "Blocker", license: "Research-only weights",
+        reason: "Chịu cùng hạn chế phi thương mại như buffalo_l. Báo cáo cũng không tìm thấy file glintr100 cục bộ tại thời điểm audit.",
+        action: "Không dùng thương mại nếu chưa có license riêng; optional vẫn bị hạn chế."
+      },
+      {
+        zone: "danger", name: "ViStreamASR U2", role: "Streaming ASR nếu cài riêng",
+        type: "local", usage: "optional", badge: "Blocker", license: "Chưa xác định",
+        reason: "Không có package version, model ID, weight URL hoặc license chính xác được pin; “U2” chỉ là tên kiến trúc, không xác định một artifact có license cụ thể.",
+        action: "Không enable trước khi pin package, checkpoint, URL và license cụ thể."
+      },
+      {
+        zone: "danger", name: "SyncNet V2 + S3FD", role: "Lip-sync microservice · Docker download",
+        type: "local", usage: "default", badge: "Blocker", license: "Không công bố license",
+        reason: "Hugging Face repository lithiumice/syncnet được tham chiếu không công bố license; provenance của các weight cũng chưa đủ để suy ra quyền sử dụng thương mại.",
+        action: "Tắt service; xin phép thương mại bằng văn bản hoặc thay weight."
+      }
+    ];
+
+    const licenseIcon = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5M10 17h5"/>
+      </svg>`;
+
+    let activeFilter = "all";
+    let searchTerm = "";
+
+    function matches(model) {
+      const filterMatch = activeFilter === "all"
+        || model.type === activeFilter
+        || model.usage === activeFilter;
+      const haystack = `${model.name} ${model.role} ${model.license} ${model.action}`.toLocaleLowerCase("vi");
+      return filterMatch && haystack.includes(searchTerm);
+    }
+
+    function cardTemplate(model) {
+      return `
+        <article class="model-card">
+          <div class="card-top">
+            <div>
+              <h3 class="model-name">${model.name}</h3>
+              <p class="model-role">${model.role}</p>
+            </div>
+            <span class="type-badge">${model.badge}</span>
+          </div>
+          <p class="license">${licenseIcon}<span>${model.license}</span></p>
+          ${model.reason ? `<p class="risk-reason reason-${model.zone}"><strong>Lý do xếp ${model.zone === "gray" ? "vùng xám" : "vùng nguy hiểm"}</strong>${model.reason}</p>` : ""}
+          <p class="action"><strong>Điều kiện:</strong> ${model.action}</p>
+        </article>`;
+    }
+
+    function render() {
+      ["safe", "gray", "danger"].forEach(zone => {
+        const items = models.filter(model => model.zone === zone && matches(model));
+        const container = document.getElementById(`${zone}Cards`);
+        container.innerHTML = items.length
+          ? items.map(cardTemplate).join("")
+          : `<div class="empty">Không có model phù hợp bộ lọc.</div>`;
+        document.querySelector(`[data-count="${zone}"]`).textContent = items.length;
+      });
+    }
+
+    document.querySelectorAll(".filter-btn").forEach(button => {
+      button.addEventListener("click", () => {
+        document.querySelector(".filter-btn.active").classList.remove("active");
+        button.classList.add("active");
+        activeFilter = button.dataset.filter;
+        render();
+      });
+    });
+
+    document.getElementById("search").addEventListener("input", event => {
+      searchTerm = event.target.value.trim().toLocaleLowerCase("vi");
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>

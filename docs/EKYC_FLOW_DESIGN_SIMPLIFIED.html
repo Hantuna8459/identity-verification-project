@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="vi" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Thiết kế luồng eKYC v2 — bản dễ hiểu cho Product, Business, Engineering, Security và Legal/DPO.">
+  <title>Thiết kế luồng eKYC v2</title>
+  <style>
+    :root {
+      --ink:#132621;--muted:#60716b;--paper:#f4f2eb;--card:#fffefa;--line:#dcded5;
+      --green:#0d735c;--green-2:#0aa179;--mint:#dff5ec;--amber:#f0a12b;--amber-bg:#fff4dc;
+      --navy:#102b35;--code:#0e2830;--shadow:0 18px 50px rgba(19,38,33,.08);
+    }
+    [data-theme="dark"] {
+      --ink:#e8f2ee;--muted:#a7b8b2;--paper:#0d1917;--card:#14231f;--line:#2b413a;
+      --mint:#173c32;--amber-bg:#3b2d18;--navy:#071a20;--shadow:0 18px 50px rgba(0,0,0,.24);
+    }
+    *{box-sizing:border-box} html{scroll-behavior:smooth;scroll-padding-top:32px}
+    body{margin:0;background:var(--paper);color:var(--ink);font:15.5px/1.72 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+    a{color:var(--green);text-underline-offset:3px} .progress{position:fixed;z-index:20;inset:0 auto auto 0;height:3px;background:var(--green-2);width:0}
+    .hero{position:relative;overflow:hidden;background:var(--navy);color:#f5fffb;padding:72px 28px 64px}
+    .hero:after{content:"";position:absolute;width:520px;height:520px;border:1px solid #ffffff24;border-radius:50%;right:-130px;top:-260px;box-shadow:0 0 0 85px #ffffff08,0 0 0 170px #ffffff05}
+    .hero-inner{position:relative;z-index:1;max-width:1180px;margin:auto}
+    .kicker,.section-label{font:700 11px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.15em;text-transform:uppercase;color:#50d6ae}
+    h1{font-size:clamp(42px,7vw,82px);line-height:.98;letter-spacing:-.055em;max-width:980px;margin:18px 0 24px}
+    .hero p{max-width:760px;font-size:19px;color:#bad0c9;margin:0} .chips{display:flex;gap:9px;flex-wrap:wrap;margin-top:28px}
+    .chip{border:1px solid #668079;padding:7px 11px;border-radius:999px;font:700 11px ui-monospace,monospace}
+    .principles{max-width:1180px;margin:-28px auto 0;position:relative;z-index:3;padding:0 28px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .principle{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--green-2);border-radius:13px;padding:18px;box-shadow:var(--shadow)}
+    .principle b{display:block;font-size:14px;margin-bottom:4px} .principle span{color:var(--muted);font-size:13px}
+    .layout{max-width:1180px;margin:auto;padding:38px 28px 90px;display:grid;grid-template-columns:260px minmax(0,1fr);gap:30px}
+    .sidebar{position:sticky;top:18px;align-self:start;max-height:calc(100vh - 36px);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:17px}
+    .sidebar-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+    .sidebar strong{font:700 11px ui-monospace,monospace;letter-spacing:.12em;color:var(--muted)} .tools{display:flex;gap:5px}
+    button{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:8px;padding:7px 9px;cursor:pointer}
+    #search{width:100%;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:8px;padding:9px 10px;margin-bottom:10px;outline:none}
+    #search:focus{border-color:var(--green-2)} nav a{display:block;text-decoration:none;color:var(--muted);font-size:12px;padding:4px 6px;border-radius:5px}
+    nav a:hover,nav a.active{color:var(--green);background:var(--mint)} main{min-width:0}
+    .content-section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:clamp(22px,4vw,42px);margin-bottom:18px;box-shadow:0 3px 16px rgba(19,38,33,.025)}
+    .content-section:first-of-type{border-top:5px solid var(--green-2)} .section-label{color:var(--green-2);margin-bottom:9px}
+    h2{font-size:clamp(25px,3.5vw,39px);line-height:1.14;letter-spacing:-.035em;margin:0 0 20px} h3{font-size:20px;line-height:1.3;margin:28px 0 10px}
+    p{margin:0 0 14px} ul,ol{padding-left:22px;margin:10px 0 18px} li{padding-left:4px;margin:5px 0}
+    strong{color:var(--ink)} code{font:12.5px ui-monospace,SFMono-Regular,Consolas,monospace;background:var(--mint);color:var(--green);padding:2px 5px;border-radius:5px}
+    .notice{background:var(--amber-bg);border-left:4px solid var(--amber);border-radius:9px;padding:16px 18px;margin:16px 0}
+    .table-scroll{overflow:auto;margin:18px 0;border:1px solid var(--line);border-radius:11px} table{width:100%;border-collapse:collapse;font-size:13px}
+    th{background:var(--mint);color:var(--green);font:700 10.5px ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;text-align:left}
+    th,td{padding:10px 12px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);vertical-align:top} tr:last-child td{border-bottom:0} th:last-child,td:last-child{border-right:0} tbody tr:hover{background:color-mix(in srgb,var(--mint) 35%,transparent)}
+    .code-wrap{position:relative;background:var(--code);border-radius:11px;margin:17px 0;overflow:hidden} .code-wrap>span{display:block;color:#63c9aa;padding:10px 15px 0;font:700 9px ui-monospace,monospace;letter-spacing:.16em}
+    pre{margin:0;padding:12px 16px 18px;overflow:auto;color:#d9eee7;font:13px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace} pre code{color:inherit;background:none;padding:0}
+    .diagram{background:#fff;border:1px solid var(--line);border-radius:11px;padding:18px;overflow:auto;margin:18px 0;text-align:center}
+    .hidden{display:none!important} .footer{text-align:center;color:var(--muted);font-size:12px;padding:0 20px 50px}
+    @media(max-width:850px){.principles{grid-template-columns:1fr}.layout{grid-template-columns:1fr}.sidebar{position:static;max-height:none}nav{display:grid;grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:540px){.hero{padding:54px 20px 52px}.principles,.layout{padding-left:16px;padding-right:16px}nav{grid-template-columns:1fr}.content-section{border-radius:12px}}
+    @media print{.progress,.sidebar,.principles,.tools{display:none}body{background:#fff;font-size:10pt}.hero{padding:24px;background:#fff;color:#111;border-bottom:2px solid #111}.hero p{color:#444}.layout{display:block;max-width:none;padding:18px 0}.content-section{box-shadow:none;border:0;border-radius:0;padding:12px 15mm;break-inside:auto}h2,h3{break-after:avoid}table,.notice,.diagram,.code-wrap{break-inside:avoid}}
+  </style>
+</head>
+<body>
+  <div class="progress" id="progress"></div>
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="kicker">eKYC v2 · Product & Engineering Design</div>
+      <h1>Thiết kế luồng eKYC</h1>
+      <p>Từ căn cứ xử lý dữ liệu đến QR handoff, kiểm tra giấy tờ, sinh trắc học, quyết định và xóa dữ liệu có bằng chứng.</p>
+      <div class="chips"><span class="chip">CCCD + HỘ CHIẾU</span><span class="chip">VIDEO SELFIE</span><span class="chip">SECURITY BY DESIGN</span><span class="chip">BẢN NHÁP REVIEW</span></div>
+    </div>
+  </header>
+  <div class="principles">
+    <div class="principle"><b>Không chắc chắn → chuyển người</b><span>Không tự đoán và không ép model đưa ra kết luận.</span></div>
+    <div class="principle"><b>Lỗi kỹ thuật ≠ gian lận</b><span>KMS, queue hay model lỗi phải được phân loại đúng.</span></div>
+    <div class="principle"><b>Thiếu kiểm soát → dừng thu thập</b><span>Không có căn cứ, mã hóa hoặc audit thì fail closed.</span></div>
+  </div>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-head"><strong>MỤC LỤC</strong><div class="tools"><button id="theme" title="Đổi giao diện">◐</button><button onclick="window.print()" title="In / PDF">⎙</button></div></div>
+      <input id="search" type="search" placeholder="Tìm trong tài liệu…" aria-label="Tìm trong tài liệu">
+      <nav id="toc"><a class="toc-l2" href="#1-h-th-ng-ekyc-d-ng-l-m-g">1. Hệ thống eKYC dùng để làm gì?</a>
+<a class="toc-l2" href="#2-lu-ng-t-ng-th">2. Luồng tổng thể</a>
+<a class="toc-l2" href="#3-nh-ng-nguy-n-t-c-quan-tr-ng">3. Những nguyên tắc quan trọng</a>
+<a class="toc-l2" href="#4-ai-tham-gia-v-o-lu-ng-ekyc">4. Ai tham gia vào luồng eKYC?</a>
+<a class="toc-l2" href="#5-b-c-1-t-o-phi-n-ekyc">5. Bước 1 — Tạo phiên eKYC</a>
+<a class="toc-l2" href="#6-b-c-2-th-ng-b-o-v-c-n-c-x-l-d-li-u">6. Bước 2 — Thông báo và căn cứ xử lý dữ liệu</a>
+<a class="toc-l2" href="#7-b-c-3-ch-p-v-t-i-gi-y-t">7. Bước 3 — Chụp và tải giấy tờ</a>
+<a class="toc-l2" href="#8-b-c-4-quay-video-v-ho-n-t-t-thu-th-p">8. Bước 4 — Quay video và hoàn tất thu thập</a>
+<a class="toc-l2" href="#9-b-c-5-x-l-gi-y-t-sau-khi-submit">9. Bước 5 — Xử lý giấy tờ sau khi submit</a>
+<a class="toc-l2" href="#10-c-ch-x-l-cccd">10. Cách xử lý CCCD</a>
+<a class="toc-l2" href="#11-c-ch-x-l-h-chi-u">11. Cách xử lý hộ chiếu</a>
+<a class="toc-l2" href="#12-b-c-6-ki-m-tra-khu-n-m-t-v-ng-i-th-t">12. Bước 6 — Kiểm tra khuôn mặt và người thật</a>
+<a class="toc-l2" href="#13-b-c-7-t-ng-h-p-k-t-qu">13. Bước 7 — Tổng hợp kết quả</a>
+<a class="toc-l2" href="#14-b-c-8-nh-n-vi-n-ki-m-duy-t">14. Bước 8 — Nhân viên kiểm duyệt</a>
+<a class="toc-l2" href="#15-tr-ng-th-i-c-a-m-t-phi-n-ekyc">15. Trạng thái của một phiên eKYC</a>
+<a class="toc-l2" href="#16-d-li-u-c-l-u-nh-th-n-o">16. Dữ liệu được lưu như thế nào?</a>
+<a class="toc-l2" href="#17-m-h-a-d-li-u">17. Mã hóa dữ liệu</a>
+<a class="toc-l2" href="#18-audit-v-log">18. Audit và log</a>
+<a class="toc-l2" href="#19-th-i-gian-l-u-v-x-a-d-li-u">19. Thời gian lưu và xóa dữ liệu</a>
+<a class="toc-l2" href="#20-quy-n-c-a-ng-i-d-ng-i-v-i-d-li-u">20. Quyền của người dùng đối với dữ liệu</a>
+<a class="toc-l2" href="#21-x-l-s-c">21. Xử lý sự cố</a>
+<a class="toc-l2" href="#22-ki-m-th-tr-c-khi-s-d-ng-d-li-u-th-t">22. Kiểm thử trước khi sử dụng dữ liệu thật</a>
+<a class="toc-l2" href="#23-gi-i-th-ch-thu-t-ng">23. Giải thích thuật ngữ</a>
+<a class="toc-l2" href="#24-t-m-t-t">24. Tóm tắt</a></nav>
+    </aside>
+    <main id="content"><h1 id="thi-t-k-lu-ng-ekyc-v2-b-n-d-hi-u">Thiết kế luồng eKYC v2</h1>
+<div class="table-scroll"><table><thead><tr><th>Thông tin</th><th>Nội dung</th></tr></thead><tbody><tr><td>Trạng thái</td><td>Bản nháp để Product, Business, Engineering, Security và Legal/DPO cùng review</td></tr><tr><td>Phạm vi</td><td>Xác minh danh tính bằng CCCD hoặc hộ chiếu và video selfie</td></tr></tbody></table></div>
+<aside class="notice">Đây là tài liệu giải thích cách hệ thống dự kiến hoạt động. Những nội dung liên quan đến căn cứ xử lý dữ liệu, thời gian lưu dữ liệu và quyền của người dùng phải được Legal/DPO phê duyệt trước khi áp dụng với dữ liệu thật.</aside>
+<section class="content-section" id="1-h-th-ng-ekyc-d-ng-l-m-g"><div class="section-label">MỤC 01</div>
+<h2 id="1-h-th-ng-ekyc-d-ng-l-m-g">1. Hệ thống eKYC dùng để làm gì?</h2>
+<p>Hệ thống giúp xác minh một người từ xa bằng cách:</p>
+<ol>
+<li>đọc thông tin trên CCCD hoặc hộ chiếu;</li>
+<li>yêu cầu người dùng quay video selfie;</li>
+<li>so sánh khuôn mặt trong video với ảnh trên giấy tờ;</li>
+<li>kiểm tra người dùng có phải người thật hay có dấu hiệu giả mạo;</li>
+<li>đưa ra kết quả hoặc chuyển hồ sơ cho nhân viên kiểm tra.</li>
+</ol>
+<p>Hệ thống không chỉ cần xử lý chính xác mà còn phải bảo vệ ảnh giấy tờ, video và thông tin cá nhân trong toàn bộ quá trình.</p>
+</section>
+<section class="content-section" id="2-lu-ng-t-ng-th"><div class="section-label">MỤC 02</div>
+<h2 id="2-lu-ng-t-ng-th">2. Luồng tổng thể</h2>
+<div class="diagram"><div class="mermaid">flowchart TD
+    A[Tạo phiên eKYC] --&gt; B[Thông báo mục đích xử lý dữ liệu]
+    B --&gt; C{Có căn cứ xử lý hợp lệ?}
+    C --&gt;|Không| D[Không cho tải dữ liệu]
+    C --&gt;|Có| E[Máy tính tạo QR dùng một lần]
+    E --&gt; F[Điện thoại quét và mở web capture]
+    F --&gt; G[Chụp CCCD hoặc hộ chiếu]
+    G --&gt; H[Kiểm tra nhanh độ mờ và chất lượng ảnh]
+    H --&gt; I{Ảnh đạt yêu cầu tối thiểu?}
+    I --&gt;|Không| J[Yêu cầu chụp lại]
+    J --&gt; G
+    I --&gt;|Có| K[Mã hóa và lưu evidence giấy tờ]
+    K --&gt; L[Quay và lưu video selfie]
+    L --&gt; M[Người dùng xác nhận hoàn tất trên điện thoại]
+    M --&gt; N[Khóa bộ evidence của phiên]
+    N --&gt; O[Xử lý OCR giấy tờ]
+    N --&gt; P[Phân tích video và khuôn mặt]
+    O --&gt; Q[Tổng hợp kết quả]
+    P --&gt; Q
+    Q --&gt; R{Kết quả}
+    R --&gt;|Đạt chính sách| S[Thông qua]
+    R --&gt;|Không đạt quy tắc rõ ràng| T[Từ chối]
+    R --&gt;|Chưa đủ chắc chắn| U[Chuyển nhân viên kiểm tra]
+    R --&gt;|Có thể thực hiện lại| V[Yêu cầu chụp hoặc quay lại]
+    R --&gt;|Lỗi hệ thống| W[Thử lại hoặc báo lỗi kỹ thuật]
+    U --&gt; X[Nhân viên đưa ra quyết định]
+    S --&gt; Y[Lưu hoặc xóa dữ liệu theo chính sách]
+    T --&gt; Y
+    X --&gt; Y</div></div>
+<p>Hiểu ngắn gọn:</p>
+<div class="code-wrap"><span>LUỒNG</span><pre><code>Có căn cứ xử lý
+→ Máy tính hiển thị QR
+→ Điện thoại mở web capture
+→ Chụp giấy tờ trên điện thoại
+→ Kiểm tra nhanh ảnh có bị mờ không
+→ Quay video selfie
+→ Người dùng xác nhận hoàn tất
+→ OCR giấy tờ và phân tích video bất đồng bộ
+→ Tự động quyết định hoặc chuyển nhân viên
+→ Xóa dữ liệu khi hết thời hạn</code></pre></div>
+</section>
+<section class="content-section" id="3-nh-ng-nguy-n-t-c-quan-tr-ng"><div class="section-label">MỤC 03</div>
+<h2 id="3-nh-ng-nguy-n-t-c-quan-tr-ng">3. Những nguyên tắc quan trọng</h2>
+<h3 id="3-1-ch-a-i-u-ki-n-th-kh-ng-thu-th-p-d-li-u">3.1 Chưa đủ điều kiện thì không thu thập dữ liệu</h3>
+<p>Trước khi người dùng tải CCCD, hộ chiếu hoặc video, hệ thống phải:</p>
+<ul>
+<li>thông báo dữ liệu được dùng để làm gì;</li>
+<li>xác định căn cứ xử lý đã được Legal/DPO phê duyệt;</li>
+<li>ghi lại bằng chứng người dùng đã được thông báo;</li>
+<li>kiểm tra hệ thống mã hóa và audit đang hoạt động.</li>
+</ul>
+<p>Nếu chưa đáp ứng, hệ thống không được cho phép upload.</p>
+<h3 id="3-2-l-i-b-o-m-t-th-ph-i-d-ng">3.2 Lỗi bảo mật thì phải dừng</h3>
+<p>Nếu không lấy được khóa mã hóa, không xác thực được service hoặc không ghi được audit, hệ thống phải dừng thao tác nhạy cảm.</p>
+<p>Hệ thống không được:</p>
+<ul>
+<li>lưu tạm CCCD dưới dạng đọc được;</li>
+<li>bỏ qua bước mã hóa;</li>
+<li>cho nhân viên xem dữ liệu khi không ghi được audit;</li>
+<li>tiếp tục xử lý như thể không có lỗi.</li>
+</ul>
+<h3 id="3-3-kh-ng-ch-c-ch-n-th-chuy-n-nh-n-vi-n">3.3 Không chắc chắn thì chuyển nhân viên</h3>
+<p>Hệ thống không được tự đoán thông tin hoặc cố đưa ra kết luận.</p>
+<p>Ví dụ cần chuyển nhân viên kiểm tra:</p>
+<ul>
+<li>OCR đọc số giấy tờ không chắc chắn;</li>
+<li>thông tin ở hai mặt CCCD không khớp;</li>
+<li>mã kiểm tra trên hộ chiếu không đạt;</li>
+<li>khuôn mặt có độ tương đồng ở vùng chưa đủ chắc chắn;</li>
+<li>liveness hoặc deepfake model trả kết quả không kết luận được.</li>
+</ul>
+<h3 id="3-4-l-i-h-th-ng-kh-ng-c-ngh-a-l-gian-l-n">3.4 Lỗi hệ thống không có nghĩa là gian lận</h3>
+<p>Nếu model bị lỗi, queue bị gián đoạn hoặc KMS không hoạt động, kết quả phải là lỗi kỹ thuật. Hồ sơ không được tự động chuyển thành “từ chối” hoặc “gian lận”.</p>
+<h3 id="3-5-kh-ng-s-d-ng-llm-ra-quy-t-nh">3.5 Không sử dụng LLM để ra quyết định</h3>
+<p>Luồng này không sử dụng LLM để:</p>
+<ul>
+<li>OCR giấy tờ;</li>
+<li>trích xuất trường thông tin;</li>
+<li>đề xuất duyệt hoặc từ chối;</li>
+<li>thay nhân viên kiểm duyệt.</li>
+</ul>
+</section>
+<section class="content-section" id="4-ai-tham-gia-v-o-lu-ng-ekyc"><div class="section-label">MỤC 04</div>
+<h2 id="4-ai-tham-gia-v-o-lu-ng-ekyc">4. Ai tham gia vào luồng eKYC?</h2>
+<div class="table-scroll"><table><thead><tr><th>Người hoặc thành phần</th><th>Trách nhiệm</th></tr></thead><tbody><tr><td>Người dùng</td><td>Cung cấp giấy tờ, quay video và theo dõi trạng thái hồ sơ</td></tr><tr><td>Website trên máy tính</td><td>Khởi tạo phiên, hiển thị QR và theo dõi tiến trình</td></tr><tr><td>Web capture trên điện thoại</td><td>Chụp giấy tờ, quay video và submit evidence</td></tr><tr><td>eKYC API</td><td>Quản lý phiên, quyền upload và trạng thái</td></tr><tr><td>Handoff service</td><td>Tạo QR token, liên kết điện thoại với phiên và chống token replay</td></tr><tr><td>Bộ xử lý giấy tờ</td><td>Kiểm tra ảnh, OCR, MRZ và trích xuất khuôn mặt</td></tr><tr><td>Bộ xử lý biometric</td><td>Face matching, liveness và tín hiệu giả mạo</td></tr><tr><td>Bộ quyết định</td><td>Áp dụng các quy tắc đã được phê duyệt</td></tr><tr><td>Nhân viên kiểm duyệt</td><td>Xử lý những trường hợp chưa đủ chắc chắn</td></tr><tr><td>Bộ phận Security/Legal/DPO</td><td>Phê duyệt bảo mật, căn cứ xử lý và lưu trữ dữ liệu</td></tr><tr><td>Bộ phận vận hành</td><td>Theo dõi hệ thống nhưng không mặc định được xem dữ liệu cá nhân</td></tr></tbody></table></div>
+<p>Mỗi vai trò chỉ được cấp đúng quyền cần thiết. Người quản trị máy chủ không mặc định có quyền xem CCCD hoặc video của người dùng.</p>
+</section>
+<section class="content-section" id="5-b-c-1-t-o-phi-n-ekyc"><div class="section-label">MỤC 05</div>
+<h2 id="5-b-c-1-t-o-phi-n-ekyc">5. Bước 1 — Tạo phiên eKYC</h2>
+<p>Khi bắt đầu, ứng dụng gửi yêu cầu tạo một phiên eKYC.</p>
+<p>Hệ thống tạo:</p>
+<ul>
+<li>mã phiên ngẫu nhiên;</li>
+<li>loại giấy tờ dự kiến;</li>
+<li>mục đích xác minh;</li>
+<li>thời gian hết hạn;</li>
+<li>phiên bản chính sách đang áp dụng.</li>
+</ul>
+<p>Trạng thái ban đầu là <code>AWAITING_LAWFUL_BASIS</code>, nghĩa là hệ thống đang chờ xác nhận căn cứ xử lý dữ liệu.</p>
+<p>Ở bước này, người dùng chưa được cấp quyền tải CCCD hoặc video.</p>
+</section>
+<section class="content-section" id="6-b-c-2-th-ng-b-o-v-c-n-c-x-l-d-li-u"><div class="section-label">MỤC 06</div>
+<h2 id="6-b-c-2-th-ng-b-o-v-c-n-c-x-l-d-li-u">6. Bước 2 — Thông báo và căn cứ xử lý dữ liệu</h2>
+<p>Trước khi thu thập dữ liệu, ứng dụng hiển thị cho người dùng:</p>
+<ul>
+<li>đơn vị nào xử lý dữ liệu;</li>
+<li>dữ liệu được sử dụng cho mục đích gì;</li>
+<li>những loại dữ liệu nào sẽ được thu thập;</li>
+<li>dữ liệu có thể được giữ trong bao lâu;</li>
+<li>người dùng có những quyền gì.</li>
+</ul>
+<p>Server ghi lại:</p>
+<ul>
+<li>phiên bản nội dung đã hiển thị;</li>
+<li>ngôn ngữ;</li>
+<li>mục đích xử lý;</li>
+<li>loại dữ liệu;</li>
+<li>thời gian và kênh ghi nhận;</li>
+<li>hành động của người dùng nếu sự đồng ý là căn cứ được áp dụng.</li>
+</ul>
+<p>Ứng dụng phía người dùng không được tự chọn căn cứ pháp lý. Server sử dụng cấu hình đã được Legal/DPO phê duyệt.</p>
+<p>Nếu thông tin này thiếu hoặc không hợp lệ, server không cấp quyền upload.</p>
+<h3 id="6-1-chuy-n-phi-n-sang-i-n-tho-i-b-ng-qr">6.1 Chuyển phiên sang điện thoại bằng QR</h3>
+<p>Sau khi có căn cứ xử lý hợp lệ, website trên máy tính yêu cầu backend tạo một QR handoff. QR mở trực tiếp trang web capture trong trình duyệt điện thoại.</p>
+<p>Luồng MVP không yêu cầu người dùng nhập mã xác nhận:</p>
+<div class="code-wrap"><span>LUỒNG</span><pre><code>Máy tính hiển thị QR
+→ điện thoại quét QR
+→ trình duyệt mở trang mobile capture
+→ backend xác nhận token dùng một lần
+→ cấp capture token giới hạn quyền
+→ người dùng bắt đầu chụp giấy tờ</code></pre></div>
+<p>Máy tính không kết nối trực tiếp với điện thoại. Cả hai thiết bị đọc và cập nhật trạng thái qua backend.</p>
+<div class="diagram"><div class="mermaid">sequenceDiagram
+    actor User as Người dùng
+    participant Desktop as Website máy tính
+    participant Backend as eKYC Backend
+    participant Mobile as Web capture điện thoại
+
+    Desktop-&gt;&gt;Backend: Tạo handoff cho session
+    Backend--&gt;&gt;Desktop: QR URL và thời gian hết hạn
+    User-&gt;&gt;Mobile: Quét QR
+    Mobile-&gt;&gt;Backend: Claim one-time token
+    Backend--&gt;&gt;Mobile: Capture token giới hạn quyền
+    Backend--&gt;&gt;Desktop: MOBILE_CONNECTED
+    Mobile-&gt;&gt;Backend: Upload giấy tờ và video
+    Desktop-&gt;&gt;Backend: Poll trạng thái session
+    Backend--&gt;&gt;Desktop: Tiến trình thu thập</div></div>
+<p>QR chỉ chứa một URL với token ngẫu nhiên dùng một lần, ví dụ:</p>
+<div class="code-wrap"><span>LUỒNG</span><pre><code>https://verify.example.com/capture?t=&lt;one-time-token&gt;</code></pre></div>
+<p>QR không chứa PII, số giấy tờ, access token tài khoản, signed evidence URL hoặc dữ liệu kết quả.</p>
+<h3 id="6-2-v-ng-i-token-qr">6.2 Vòng đời token QR</h3>
+<p>Handoff token có vòng đời riêng:</p>
+<div class="code-wrap"><span>LUỒNG</span><pre><code>CREATED → CLAIMED → CONSUMED
+       ↘ EXPIRED
+       ↘ REVOKED</code></pre></div>
+<p>Quy tắc:</p>
+<ul>
+<li>token chỉ dùng được một lần và có thời gian sống ngắn;</li>
+<li>backend chỉ lưu hash/HMAC của token, không lưu raw token;</li>
+<li>sau khi claim, QR token bị vô hiệu và được đổi thành capture token khác;</li>
+<li>capture token chỉ có quyền upload evidence và submit đúng phiên;</li>
+<li>capture token không được xem PII, kết quả chi tiết hoặc trang quản trị;</li>
+<li>chỉ một điện thoại được claim một handoff tại một thời điểm;</li>
+<li>tạo QR mới phải revoke QR cũ;</li>
+<li>máy tính có nút tạo lại QR và ngắt kết nối điện thoại;</li>
+<li>QR/capture token không được ghi vào application log, analytics hoặc audit payload.</li>
+</ul>
+<p>MVP cho phép vào thẳng web capture mà không nhập mã. Nếu sau này triển khai ở quầy công cộng hoặc risk assessment yêu cầu mức bảo đảm cao hơn, có thể bổ sung bước xác nhận thiết bị trên máy tính mà không thay đổi luồng evidence phía sau.</p>
+<h3 id="6-3-api-handoff-t-i-thi-u">6.3 API handoff tối thiểu</h3>
+<div class="table-scroll"><table><thead><tr><th>API</th><th>Mục đích</th></tr></thead><tbody><tr><td><code>POST /v2/ekyc/sessions/{id}/handoffs</code></td><td>Tạo QR token dùng một lần</td></tr><tr><td><code>POST /v2/ekyc/handoffs/claim</code></td><td>Điện thoại claim token và nhận capture token</td></tr><tr><td><code>GET /v2/ekyc/sessions/{id}/handoff-status</code></td><td>Máy tính polling trạng thái</td></tr><tr><td><code>POST /v2/ekyc/sessions/{id}/handoffs/{handoff_id}/revoke</code></td><td>Ngắt thiết bị hoặc vô hiệu QR</td></tr></tbody></table></div>
+<p>Các lệnh tạo, claim và revoke phải idempotent. Claim lặp lại cùng token không được tạo thêm capture session hoặc cho thiết bị thứ hai truy cập.</p>
+</section>
+<section class="content-section" id="7-b-c-3-ch-p-v-t-i-gi-y-t"><div class="section-label">MỤC 07</div>
+<h2 id="7-b-c-3-ch-p-v-t-i-gi-y-t">7. Bước 3 — Chụp và tải giấy tờ</h2>
+<p>Các bước chụp giấy tờ và quay video dưới đây được thực hiện trên web capture trong trình duyệt điện thoại. Toàn bộ evidence vẫn thuộc cùng <code>session_id</code> đã được tạo trên máy tính; QR không tạo một phiên eKYC mới.</p>
+<h3 id="7-1-v-i-cccd">7.1 Với CCCD</h3>
+<p>Hệ thống yêu cầu:</p>
+<ul>
+<li>ảnh mặt trước;</li>
+<li>ảnh mặt sau.</li>
+</ul>
+<p>Mỗi ảnh có quyền upload riêng. Quyền tải mặt trước không được dùng để tải mặt sau.</p>
+<h3 id="7-2-v-i-h-chi-u">7.2 Với hộ chiếu</h3>
+<p>Phiên bản đầu chỉ yêu cầu trang có:</p>
+<ul>
+<li>ảnh chân dung;</li>
+<li>thông tin cá nhân;</li>
+<li>hai dòng MRZ ở cuối trang.</li>
+</ul>
+<p>Hệ thống không yêu cầu “mặt sau hộ chiếu”, trang visa hoặc bìa hộ chiếu.</p>
+<h3 id="7-3-ki-m-tra-file-upload">7.3 Kiểm tra file upload</h3>
+<p>Trước khi lưu, hệ thống kiểm tra:</p>
+<ul>
+<li>quyền upload còn hiệu lực;</li>
+<li>file có thuộc đúng phiên không;</li>
+<li>định dạng và kích thước có hợp lệ không;</li>
+<li>nội dung thật của file có đúng với định dạng khai báo không;</li>
+<li>file có mã độc không;</li>
+<li>dữ liệu có thể được mã hóa hay không.</li>
+</ul>
+<p>File không cần thiết hoặc không hợp lệ phải bị từ chối và không được lưu.</p>
+<h3 id="7-4-ki-m-tra-ch-t-l-ng-nhanh-ngay-sau-khi-ch-p">7.4 Kiểm tra chất lượng nhanh ngay sau khi chụp</h3>
+<p>Với từng ảnh giấy tờ, hệ thống thực hiện một kiểm tra nhẹ trước khi chấp nhận ảnh:</p>
+<ol>
+<li>giải mã ảnh trong bộ nhớ;</li>
+<li>đưa ảnh về kích thước chuẩn;</li>
+<li>đo độ mờ;</li>
+<li>kiểm tra ảnh quá tối hoặc quá sáng;</li>
+<li>kiểm tra độ tương phản và vùng chói lớn;</li>
+<li>trả kết quả cho người dùng.</li>
+</ol>
+<p>Bước này chỉ dùng các phép xử lý ảnh nhẹ bằng OpenCV. Không chạy OCR, YOLO, InsightFace, LLM hoặc model video.</p>
+<p>Nếu ảnh không đạt:</p>
+<ul>
+<li>yêu cầu người dùng chụp lại ngay;</li>
+<li>không chọn ảnh làm evidence chính thức;</li>
+<li>không tạo OCR job;</li>
+<li>xóa bản tạm theo policy.</li>
+</ul>
+<p>Nếu ảnh đạt:</p>
+<ul>
+<li>mã hóa và lưu evidence;</li>
+<li>ghi nhận mặt giấy tờ và revision;</li>
+<li>cho phép người dùng chuyển sang bước tiếp theo.</li>
+</ul>
+<p>Mục tiêu của bước này là phát hiện sớm lỗi có thể sửa khi người dùng vẫn đang ở màn hình chụp ảnh. Kết quả không được dùng để khẳng định giấy tờ thật hoặc giả.</p>
+</section>
+<section class="content-section" id="8-b-c-4-quay-video-v-ho-n-t-t-thu-th-p"><div class="section-label">MỤC 08</div>
+<h2 id="8-b-c-4-quay-video-v-ho-n-t-t-thu-th-p">8. Bước 4 — Quay video và hoàn tất thu thập</h2>
+<p>Sau khi ảnh giấy tờ đã vượt qua kiểm tra chất lượng nhanh, server tạo một thử thách:</p>
+<ul>
+<li>gắn với đúng phiên;</li>
+<li>chỉ dùng được một lần;</li>
+<li>hết hạn sau thời gian ngắn.</li>
+</ul>
+<p>Ứng dụng hướng dẫn người dùng:</p>
+<ul>
+<li>đặt khuôn mặt đúng vị trí;</li>
+<li>bảo đảm đủ ánh sáng;</li>
+<li>thực hiện hành động được yêu cầu;</li>
+<li>quay đủ thời lượng.</li>
+</ul>
+<p>Khi upload video, hệ thống chỉ:</p>
+<ul>
+<li>xác thực phiên và quyền upload;</li>
+<li>kiểm tra định dạng, kích thước và thời lượng;</li>
+<li>kiểm tra video có thể mở được và có video track;</li>
+<li>quét mã độc;</li>
+<li>mã hóa và lưu evidence.</li>
+</ul>
+<p>Face matching, liveness, deepfake, lip-sync và speech model chưa chạy ở bước upload. Các model này chỉ chạy sau khi người dùng bấm hoàn tất. Cách này tránh tiêu tốn tài nguyên cho những phiên người dùng bỏ dở.</p>
+<p>Khi người dùng bấm hoàn tất, backend:</p>
+<ol>
+<li>kiểm tra đã có đủ các evidence bắt buộc;</li>
+<li>kiểm tra ảnh giấy tờ đã vượt qua quality check;</li>
+<li>chọn revision hiện hành của từng evidence;</li>
+<li>khóa bộ evidence để không bị thay đổi trong lúc xử lý;</li>
+<li>chuyển phiên sang <code>SUBMITTED</code>;</li>
+<li>tạo document job và video job;</li>
+<li>trả trạng thái <code>PROCESSING</code> mà không giữ request chờ model.</li>
+</ol>
+</section>
+<section class="content-section" id="9-b-c-5-x-l-gi-y-t-sau-khi-submit"><div class="section-label">MỤC 09</div>
+<h2 id="9-b-c-5-x-l-gi-y-t-sau-khi-submit">9. Bước 5 — Xử lý giấy tờ sau khi submit</h2>
+<p>OCR và các model giấy tờ chưa chạy ngay khi upload. Chúng chỉ chạy bất đồng bộ sau khi người dùng đã cung cấp đủ evidence và bấm hoàn tất phiên.</p>
+<p>Khi đó hệ thống:</p>
+<ol>
+<li>giải mã ảnh trong phạm vi công việc được cấp quyền;</li>
+<li>xoay và chỉnh phối cảnh;</li>
+<li>kiểm tra đầy đủ bố cục, góc giấy tờ và chất lượng;</li>
+<li>kiểm tra loại giấy tờ có đúng loại người dùng đã chọn không;</li>
+<li>đọc chữ bằng OCR hoặc đọc MRZ;</li>
+<li>chuẩn hóa và kiểm tra các trường;</li>
+<li>lấy ảnh chân dung trên giấy tờ;</li>
+<li>tạo kết quả và mức độ tin cậy;</li>
+<li>xóa ảnh hoặc dữ liệu trung gian không cần giữ.</li>
+</ol>
+<p>Kết quả của bước này có thể là:</p>
+<div class="table-scroll"><table><thead><tr><th>Kết quả</th><th>Ý nghĩa</th></tr></thead><tbody><tr><td>Giấy tờ đạt</td><td>Đưa kết quả vào bước tổng hợp</td></tr><tr><td>Cần chụp lại</td><td>Fast check đã bỏ sót lỗi hoặc model phát hiện ảnh/bố cục chưa đạt</td></tr><tr><td>Cần nhân viên kiểm tra</td><td>Đọc được nhưng có thông tin không chắc chắn hoặc xung đột</td></tr><tr><td>Lỗi kỹ thuật</td><td>Hệ thống thử lại; không kết luận giấy tờ giả</td></tr></tbody></table></div>
+</section>
+<section class="content-section" id="10-c-ch-x-l-cccd"><div class="section-label">MỤC 10</div>
+<h2 id="10-c-ch-x-l-cccd">10. Cách xử lý CCCD</h2>
+<p>Với mỗi trường đọc được, hệ thống ghi:</p>
+<ul>
+<li>giá trị;</li>
+<li>độ tin cậy;</li>
+<li>thông tin đến từ mặt trước hay mặt sau;</li>
+<li>kết quả kiểm tra theo rule.</li>
+</ul>
+<p>Ví dụ:</p>
+<div class="table-scroll"><table><thead><tr><th>Trường hợp</th><th>Cách xử lý</th></tr></thead><tbody><tr><td>Ảnh bị chói</td><td>Yêu cầu chụp lại</td></tr><tr><td>Không đọc được số CCCD</td><td>Yêu cầu chụp lại hoặc manual review</td></tr><tr><td>Hai mặt có thông tin xung đột</td><td>Manual review</td></tr><tr><td>Trường không đọc được</td><td>Không tự suy đoán giá trị</td></tr><tr><td>OCR đọc được đầy đủ</td><td>Chỉ có nghĩa là đọc được, chưa đủ để khẳng định giấy tờ thật</td></tr></tbody></table></div>
+</section>
+<section class="content-section" id="11-c-ch-x-l-h-chi-u"><div class="section-label">MỤC 11</div>
+<h2 id="11-c-ch-x-l-h-chi-u">11. Cách xử lý hộ chiếu</h2>
+<p>Hộ chiếu được xử lý theo hướng MRZ-first.</p>
+<p>MRZ là hai dòng ký tự ở cuối trang thông tin cá nhân. Mỗi dòng của hộ chiếu TD3 có 44 ký tự.</p>
+<p>MRZ thường chứa:</p>
+<ul>
+<li>loại giấy tờ;</li>
+<li>quốc gia cấp;</li>
+<li>họ tên;</li>
+<li>số hộ chiếu;</li>
+<li>quốc tịch;</li>
+<li>ngày sinh;</li>
+<li>giới tính;</li>
+<li>ngày hết hạn;</li>
+<li>các số kiểm tra.</li>
+</ul>
+<p>Hệ thống:</p>
+<ol>
+<li>tìm vùng MRZ;</li>
+<li>đọc đúng hai dòng;</li>
+<li>tách các trường thông tin;</li>
+<li>kiểm tra các số kiểm tra;</li>
+<li>đọc phần thông tin nhìn thấy trên trang;</li>
+<li>so sánh hai nguồn thông tin.</li>
+</ol>
+<div class="table-scroll"><table><thead><tr><th>Trường hợp</th><th>Cách xử lý</th></tr></thead><tbody><tr><td>MRZ đọc rõ và các số kiểm tra đều đạt</td><td>Đưa kết quả vào bước tổng hợp</td></tr><tr><td>Ảnh bị cắt mất MRZ</td><td>Yêu cầu chụp lại</td></tr><tr><td>Số kiểm tra không đạt</td><td>Manual review</td></tr><tr><td>MRZ khác thông tin nhìn thấy</td><td>Manual review</td></tr><tr><td>Không thuộc loại hộ chiếu được hỗ trợ</td><td>Thông báo chưa hỗ trợ hoặc chuyển review theo chính sách</td></tr></tbody></table></div>
+<p>Hệ thống chưa tuyên bố đọc chip NFC hoặc xác thực hộ chiếu với cơ quan phát hành.</p>
+</section>
+<section class="content-section" id="12-b-c-6-ki-m-tra-khu-n-m-t-v-ng-i-th-t"><div class="section-label">MỤC 12</div>
+<h2 id="12-b-c-6-ki-m-tra-khu-n-m-t-v-ng-i-th-t">12. Bước 6 — Kiểm tra khuôn mặt và người thật</h2>
+<p>Sau khi người dùng bấm hoàn tất, hệ thống khóa các evidence revision được chọn và tạo video-processing job bất đồng bộ. Job có thể thực hiện:</p>
+<ul>
+<li>kiểm tra chất lượng video và khuôn mặt;</li>
+<li>phát hiện và căn chỉnh khuôn mặt;</li>
+<li>so sánh với ảnh trên giấy tờ;</li>
+<li>kiểm tra liveness;</li>
+<li>kiểm tra tín hiệu deepfake hoặc spoof;</li>
+<li>kiểm tra voice spoof nếu audio thuộc phạm vi được phê duyệt.</li>
+</ul>
+<p>Mỗi kết quả phải ghi:</p>
+<ul>
+<li>phiên bản model;</li>
+<li>điểm số hoặc độ tin cậy;</li>
+<li>ngưỡng áp dụng;</li>
+<li>lý do;</li>
+<li>phiên bản quy tắc.</li>
+</ul>
+<p>Ảnh mặt cắt ra, frame video, audio và face embedding mặc định được xóa sau xử lý.</p>
+<p>Nếu model trả <code>INCONCLUSIVE</code>, nghĩa là chưa đủ dữ liệu để kết luận. Nó không có nghĩa người dùng đang gian lận.</p>
+<h3 id="12-1-c-ng-vi-c-c-a-t-ng-thu-t-to-n-v-model">12.1 Công việc của từng thuật toán và model</h3>
+<p>Đây là cách phân công trách nhiệm theo thiết kế đích. Bảng không khẳng định tất cả model hiện tại đã đạt benchmark production. Các thành phần ghi “nếu được bật” hoặc “nếu được duyệt” không phải dependency bắt buộc của quyết định eKYC.</p>
+<div class="table-scroll"><table><thead><tr><th>Thời điểm</th><th>Thuật toán/model</th><th>Dữ liệu đầu vào</th><th>Công việc</th><th>Kết quả đầu ra</th></tr></thead><tbody><tr><td>Ngay sau khi chụp giấy tờ</td><td>OpenCV quality check</td><td>Một ảnh giấy tờ</td><td>Đo blur, sáng/tối, tương phản và vùng chói</td><td>Điểm chất lượng và yêu cầu chụp lại nếu cần</td></tr><tr><td>Sau khi submit</td><td>YOLO layout CCCD</td><td>Ảnh CCCD</td><td>Tìm bố cục, vùng thông tin, ảnh chân dung và góc giấy tờ</td><td>Danh sách vùng cần OCR và cảnh báo bố cục</td></tr><tr><td>Sau khi submit</td><td>MRZ locator</td><td>Trang dữ liệu cá nhân hộ chiếu</td><td>Tìm đúng vùng hai dòng MRZ</td><td>Ảnh vùng MRZ và cảnh báo khi bị cắt/không tìm thấy</td></tr><tr><td>Sau khi submit</td><td>RapidOCR/PP-OCR</td><td>Toàn ảnh hoặc vùng YOLO đã cắt</td><td>Nhận dạng chữ và confidence</td><td>Raw OCR text, bounding box và confidence</td></tr><tr><td>Sau khi submit</td><td>MRZ parser và check-digit rules</td><td>Hai dòng MRZ hộ chiếu</td><td>Tách trường và kiểm tra số kiểm tra</td><td>Trường hộ chiếu, lỗi check digit và xung đột</td></tr><tr><td>Sau khi submit</td><td>CCCD parser và validation rules</td><td>OCR hai mặt CCCD</td><td>Chuẩn hóa trường và đối chiếu hai mặt</td><td>Structured fields và reason codes</td></tr><tr><td>Sau khi submit</td><td>SCRFD/InsightFace detection</td><td>Ảnh giấy tờ và các frame video</td><td>Tìm khuôn mặt và landmark</td><td>Khuôn mặt tốt nhất, bounding box và chất lượng</td></tr><tr><td>Sau khi submit</td><td>ArcFace/InsightFace recognition</td><td>Khuôn mặt giấy tờ và video đã căn chỉnh</td><td>Tạo embedding và tính độ tương đồng</td><td>Face-match score và vùng quyết định</td></tr><tr><td>Sau khi submit</td><td>MiniFASNet</td><td>Khuôn mặt từ frame video</td><td>Kiểm tra passive liveness/anti-spoof</td><td>Liveness score và trạng thái đạt/chưa đạt</td></tr><tr><td>Sau khi submit</td><td>Active-liveness rules</td><td>Chuỗi landmark/frame theo thời gian</td><td>Kiểm tra chớp mắt hoặc quay đầu theo challenge</td><td>Kết quả từng challenge</td></tr><tr><td>Sau khi submit</td><td>Deepfake ONNX model</td><td>Các face frame được chọn</td><td>Tìm tín hiệu hình ảnh giả hoặc đã chỉnh sửa</td><td>Deepfake score theo frame và kết quả tổng hợp</td></tr><tr><td>Sau khi submit</td><td>Replay/camera heuristics</td><td>Chuỗi frame và metadata video</td><td>Tìm frame lặp, hình ảnh đóng băng hoặc dấu hiệu phát lại</td><td>Replay/camera-injection reason codes</td></tr><tr><td>Sau khi submit, nếu được bật</td><td>SyncNet/lip-sync</td><td>Face track và audio</td><td>Kiểm tra chuyển động môi có khớp âm thanh không</td><td>Lip-sync score</td></tr><tr><td>Sau khi submit, nếu được duyệt</td><td>Whisper/PhoWhisper</td><td>Audio từ video</td><td>Nhận dạng nội dung challenge bằng giọng nói</td><td>Transcript tạm thời và mức độ khớp</td></tr><tr><td>Khi đủ kết quả</td><td>Decision rules</td><td>Các signal đã chuẩn hóa</td><td>Áp dụng policy và reason code</td><td>Approve, reject, review hoặc resubmission</td></tr></tbody></table></div>
+<p>Decision rules không phải model AI. Thành phần này chỉ áp dụng các ngưỡng và quy tắc đã được phê duyệt lên kết quả của các model.</p>
+<h3 id="12-2-quan-h-ph-thu-c-gi-a-c-c-model">12.2 Quan hệ phụ thuộc giữa các model</h3>
+<p>Các công việc không hoàn toàn phải chạy nối tiếp:</p>
+<div class="diagram"><div class="mermaid">flowchart TD
+    A[Phiên đã submit] --&gt; B[Document job]
+    A --&gt; C[Video job]
+    B --&gt; D[YOLO layout]
+    D --&gt; E[OCR hoặc MRZ]
+    D --&gt; F[Chọn khuôn mặt giấy tờ]
+    C --&gt; G[Trích xuất frame video]
+    G --&gt; H[Chọn khuôn mặt live]
+    G --&gt; I[Liveness]
+    G --&gt; J[Deepfake và replay]
+    F --&gt; K[Face matching]
+    H --&gt; K
+    E --&gt; L[Decision rules]
+    I --&gt; L
+    J --&gt; L
+    K --&gt; L</div></div>
+<p>Document job và video job có thể chạy song song. Face matching chỉ chạy khi đã có khuôn mặt từ cả giấy tờ và video. Decision chỉ chạy khi các signal bắt buộc đã đủ.</p>
+<h3 id="12-3-i-u-kh-ng-c-suy-di-n-t-k-t-qu-model">12.3 Điều không được suy diễn từ kết quả model</h3>
+<ul>
+<li>Blur score thấp chỉ có nghĩa ảnh chưa phù hợp để xử lý, không có nghĩa giấy tờ giả.</li>
+<li>OCR đọc đủ chữ không chứng minh giấy tờ thật.</li>
+<li>Face-match score thấp không tự chứng minh một người gian lận.</li>
+<li>Liveness hoặc deepfake <code>INCONCLUSIVE</code> phải chuyển review hoặc yêu cầu làm lại.</li>
+<li>Có file model trong hệ thống không đồng nghĩa model đã đạt benchmark production.</li>
+</ul>
+<h3 id="12-4-quy-t-c-v-n-h-nh-model">12.4 Quy tắc vận hành model</h3>
+<ul>
+<li>Tất cả model bắt buộc phải được tải, kiểm tra checksum và đặt sẵn trước khi worker</li>
+</ul>
+<p>nhận job.</p>
+<ul>
+<li>Production worker không được tự tải model từ Internet trong lúc xử lý hồ sơ.</li>
+<li>Mỗi worker load model một lần khi khởi động và tái sử dụng cho nhiều job.</li>
+<li>Worker chỉ chuyển sang trạng thái ready sau khi các model bắt buộc vượt qua smoke</li>
+</ul>
+<p>test.</p>
+<ul>
+<li>Mỗi kết quả phải ghi model version, rule version và threshold version.</li>
+<li>Thiếu model bắt buộc phải làm job dừng với lỗi kỹ thuật, không fallback sang một</li>
+</ul>
+<p>phương pháp yếu hơn mà không có phê duyệt.</p>
+</section>
+<section class="content-section" id="13-b-c-7-t-ng-h-p-k-t-qu"><div class="section-label">MỤC 13</div>
+<h2 id="13-b-c-7-t-ng-h-p-k-t-qu">13. Bước 7 — Tổng hợp kết quả</h2>
+<p>Bộ quyết định nhận các kết quả đã chuẩn hóa, không cần nhận ảnh hoặc video gốc.</p>
+<p>Nó có thể trả một trong các kết quả:</p>
+<div class="table-scroll"><table><thead><tr><th>Kết quả</th><th>Ý nghĩa</th></tr></thead><tbody><tr><td><code>APPROVED</code></td><td>Hồ sơ đạt chính sách đang áp dụng</td></tr><tr><td><code>REJECTED</code></td><td>Hồ sơ không đạt một quy tắc từ chối rõ ràng đã được phê duyệt</td></tr><tr><td><code>MANUAL_REVIEW</code></td><td>Cần nhân viên kiểm tra</td></tr><tr><td><code>RESUBMISSION_REQUIRED</code></td><td>Người dùng cần chụp hoặc quay lại</td></tr><tr><td><code>UNABLE_TO_COMPLETE</code></td><td>Không thể hoàn tất do lỗi hoặc hành trình bị gián đoạn</td></tr></tbody></table></div>
+<p>Nguyên tắc routing:</p>
+<ul>
+<li>tất cả kiểm tra đạt → có thể thông qua tự động;</li>
+<li>vi phạm quy tắc từ chối rõ ràng → có thể từ chối tự động;</li>
+<li>độ tin cậy thấp hoặc tín hiệu xung đột → manual review;</li>
+<li>ảnh/video có thể cải thiện → yêu cầu thực hiện lại;</li>
+<li>model, mã hóa, lưu trữ hoặc audit bị lỗi → lỗi kỹ thuật.</li>
+</ul>
+</section>
+<section class="content-section" id="14-b-c-8-nh-n-vi-n-ki-m-duy-t"><div class="section-label">MỤC 14</div>
+<h2 id="14-b-c-8-nh-n-vi-n-ki-m-duy-t">14. Bước 8 — Nhân viên kiểm duyệt</h2>
+<p>Nhân viên chỉ xử lý những hồ sơ chưa đủ chắc chắn hoặc policy yêu cầu con người kiểm tra.</p>
+<p>Quy trình:</p>
+<ol>
+<li>nhân viên đăng nhập bằng MFA;</li>
+<li>danh sách hồ sơ mặc định che thông tin cá nhân;</li>
+<li>nhân viên chỉ mở những trường cần thiết;</li>
+<li>mỗi lần xem hoặc giải mã đều được ghi audit;</li>
+<li>nhân viên chọn duyệt, từ chối, yêu cầu làm lại hoặc chuyển cấp cao hơn;</li>
+<li>trường hợp từ chối hoặc yêu cầu làm lại phải có lý do;</li>
+<li>kết quả tự động ban đầu không bị sửa hoặc xóa.</li>
+</ol>
+<p>Nếu hệ thống audit không hoạt động, nhân viên không được xem dữ liệu hoặc ghi quyết định.</p>
+</section>
+<section class="content-section" id="15-tr-ng-th-i-c-a-m-t-phi-n-ekyc"><div class="section-label">MỤC 15</div>
+<h2 id="15-tr-ng-th-i-c-a-m-t-phi-n-ekyc">15. Trạng thái của một phiên eKYC</h2>
+<p>Để dễ quản lý, hệ thống tách ba loại trạng thái.</p>
+<h3 id="15-1-ng-i-d-ng-ang-b-c-n-o">15.1 Người dùng đang ở bước nào?</h3>
+<div class="table-scroll"><table><thead><tr><th>Trạng thái</th><th>Ý nghĩa</th></tr></thead><tbody><tr><td><code>AWAITING_LAWFUL_BASIS</code></td><td>Chờ xác nhận căn cứ xử lý</td></tr><tr><td><code>AWAITING_DEVICE_HANDOFF</code></td><td>Máy tính đang hiển thị QR và chờ điện thoại kết nối</td></tr><tr><td><code>COLLECTING_EVIDENCE</code></td><td>Đang chụp giấy tờ và quay video</td></tr><tr><td><code>SUBMITTED</code></td><td>Người dùng đã hoàn tất và bộ evidence đã được khóa</td></tr><tr><td><code>PROCESSING</code></td><td>Document job và video job đang chạy bất đồng bộ</td></tr><tr><td><code>AWAITING_REVIEW</code></td><td>Đang chờ nhân viên kiểm tra</td></tr><tr><td><code>AWAITING_RESUBMISSION</code></td><td>Chờ người dùng thực hiện lại</td></tr><tr><td><code>COMPLETED</code></td><td>Đã có kết quả cuối</td></tr><tr><td><code>EXPIRED</code></td><td>Phiên đã hết hạn</td></tr><tr><td><code>RESTRICTED</code></td><td>Tạm dừng do yêu cầu về dữ liệu hoặc tuân thủ</td></tr><tr><td><code>PURGED</code></td><td>Dữ liệu thuộc phạm vi xóa đã được xóa</td></tr></tbody></table></div>
+<p>Mỗi evidence có trạng thái riêng:</p>
+<div class="code-wrap"><span>LUỒNG</span><pre><code>Giấy tờ:
+UPLOADED → QUALITY_CHECKING → QUALITY_PASSED hoặc QUALITY_FAILED
+
+Video:
+UPLOADED → STORED → PROCESSING → PROCESSED
+
+QR handoff:
+CREATED → CLAIMED → CONSUMED
+       ↘ EXPIRED hoặc REVOKED</code></pre></div>
+<h3 id="15-2-c-ng-vi-c-k-thu-t-ang-ch-y-th-n-o">15.2 Công việc kỹ thuật đang chạy thế nào?</h3>
+<div class="code-wrap"><span>LUỒNG</span><pre><code>Đang chờ → Đang chạy → Thành công
+                   ↘ Chờ thử lại → Thất bại cuối</code></pre></div>
+<h3 id="15-3-k-t-lu-n-nghi-p-v-l-g">15.3 Kết luận nghiệp vụ là gì?</h3>
+<div class="code-wrap"><span>LUỒNG</span><pre><code>Chưa có kết quả
+Thông qua
+Từ chối
+Cần nhân viên kiểm tra
+Cần thực hiện lại
+Không thể hoàn tất</code></pre></div>
+<p>Việc tách ba nhóm trạng thái giúp lỗi server không bị hiểu nhầm là hồ sơ bị từ chối.</p>
+</section>
+<section class="content-section" id="16-d-li-u-c-l-u-nh-th-n-o"><div class="section-label">MỤC 16</div>
+<h2 id="16-d-li-u-c-l-u-nh-th-n-o">16. Dữ liệu được lưu như thế nào?</h2>
+<h3 id="16-1-database-v-n-h-nh">16.1 Database vận hành</h3>
+<p>Chỉ nên lưu:</p>
+<ul>
+<li>mã phiên;</li>
+<li>trạng thái;</li>
+<li>thời gian;</li>
+<li>phiên bản policy;</li>
+<li>mã tham chiếu.</li>
+</ul>
+<p>Không lưu trực tiếp họ tên, số CCCD, ngày sinh, địa chỉ hoặc raw OCR.</p>
+<h3 id="16-2-kho-d-li-u-nh-y-c-m">16.2 Kho dữ liệu nhạy cảm</h3>
+<p>Kho mã hóa lưu:</p>
+<ul>
+<li>ảnh CCCD hoặc hộ chiếu;</li>
+<li>video selfie;</li>
+<li>thông tin định danh cần giữ;</li>
+<li>kết quả phân tích đầy đủ.</li>
+</ul>
+<p>Mỗi dữ liệu phải có mục đích và thời hạn lưu.</p>
+<h3 id="16-3-d-li-u-ch-n-n-t-n-t-i-t-m-th-i">16.3 Dữ liệu chỉ nên tồn tại tạm thời</h3>
+<p>Mặc định xóa sau xử lý:</p>
+<ul>
+<li>raw OCR;</li>
+<li>ảnh khuôn mặt được cắt ra;</li>
+<li>frame video;</li>
+<li>audio trung gian;</li>
+<li>face embedding;</li>
+<li>file tạm.</li>
+</ul>
+</section>
+<section class="content-section" id="17-m-h-a-d-li-u"><div class="section-label">MỤC 17</div>
+<h2 id="17-m-h-a-d-li-u">17. Mã hóa dữ liệu</h2>
+<p>Hiểu đơn giản:</p>
+<ol>
+<li>mỗi file hoặc payload được mã hóa bằng một khóa dữ liệu;</li>
+<li>khóa dữ liệu tiếp tục được bảo vệ bởi hệ thống quản lý khóa;</li>
+<li>database không lưu khóa giải mã thực tế;</li>
+<li>service chỉ được giải mã đúng dữ liệu cần thiết trong thời gian ngắn.</li>
+</ol>
+<p>Nếu không thể mã hóa:</p>
+<ol>
+<li>không lưu dữ liệu;</li>
+<li>dừng công việc;</li>
+<li>xóa file tạm;</li>
+<li>phát cảnh báo không chứa thông tin cá nhân;</li>
+<li>không chuyển sang lưu plaintext.</li>
+</ol>
+</section>
+<section class="content-section" id="18-audit-v-log"><div class="section-label">MỤC 18</div>
+<h2 id="18-audit-v-log">18. Audit và log</h2>
+<h3 id="18-1-audit-ghi-l-i-ho-t-ng-nh-y-c-m">18.1 Audit ghi lại hoạt động nhạy cảm</h3>
+<p>Audit phải trả lời được:</p>
+<ul>
+<li>ai đã tạo hoặc thay đổi phiên;</li>
+<li>ai đã xem hay giải mã thông tin;</li>
+<li>ai đã tải xuống hoặc xuất dữ liệu;</li>
+<li>model, rule và policy nào đã được sử dụng;</li>
+<li>ai đã duyệt hoặc từ chối;</li>
+<li>dữ liệu đã được xóa khi nào.</li>
+</ul>
+<h3 id="18-2-log-k-thu-t-kh-ng-c-ch-a">18.2 Log kỹ thuật không được chứa</h3>
+<ul>
+<li>ảnh giấy tờ hoặc khuôn mặt;</li>
+<li>video và audio;</li>
+<li>raw OCR;</li>
+<li>họ tên, số giấy tờ, ngày sinh hoặc địa chỉ;</li>
+<li>face embedding;</li>
+<li>password, token, API key hoặc encryption key;</li>
+<li>signed URL;</li>
+<li>request body chứa thông tin cá nhân.</li>
+</ul>
+</section>
+<section class="content-section" id="19-th-i-gian-l-u-v-x-a-d-li-u"><div class="section-label">MỤC 19</div>
+<h2 id="19-th-i-gian-l-u-v-x-a-d-li-u">19. Thời gian lưu và xóa dữ liệu</h2>
+<p>Thời gian cụ thể chưa được đặt trong tài liệu vì cần Legal/DPO và business phê duyệt.</p>
+<p>Cần quyết định riêng cho:</p>
+<ul>
+<li>hồ sơ đã thông qua;</li>
+<li>hồ sơ bị từ chối;</li>
+<li>hồ sơ bỏ dở hoặc hết hạn;</li>
+<li>hồ sơ có tranh chấp;</li>
+<li>ảnh giấy tờ;</li>
+<li>video và audio;</li>
+<li>thông tin đã trích xuất;</li>
+<li>audit và backup.</li>
+</ul>
+<p>Khi đến thời điểm xóa, hệ thống phải kiểm tra và xóa khỏi:</p>
+<ul>
+<li>database;</li>
+<li>object storage;</li>
+<li>file tạm;</li>
+<li>cache;</li>
+<li>queue;</li>
+<li>kết quả trung gian;</li>
+<li>search index;</li>
+<li>backup khi đến thời điểm hết hạn.</li>
+</ul>
+<p>Sau khi xóa, hệ thống tạo báo cáo để xác nhận dữ liệu nào đã xóa và bản backup còn lại sẽ hết hạn khi nào.</p>
+</section>
+<section class="content-section" id="20-quy-n-c-a-ng-i-d-ng-i-v-i-d-li-u"><div class="section-label">MỤC 20</div>
+<h2 id="20-quy-n-c-a-ng-i-d-ng-i-v-i-d-li-u">20. Quyền của người dùng đối với dữ liệu</h2>
+<p>Tùy quy định áp dụng, hệ thống cần hỗ trợ quy trình:</p>
+<ul>
+<li>yêu cầu xem dữ liệu;</li>
+<li>yêu cầu sửa dữ liệu;</li>
+<li>hạn chế xử lý;</li>
+<li>phản đối hoặc rút lại sự đồng ý khi áp dụng;</li>
+<li>yêu cầu xóa dữ liệu.</li>
+</ul>
+<p>Mỗi yêu cầu phải:</p>
+<ul>
+<li>xác thực đúng người yêu cầu;</li>
+<li>có mã hồ sơ và người chịu trách nhiệm;</li>
+<li>được ghi audit;</li>
+<li>không ghi đè bằng chứng hoặc kết quả cũ;</li>
+<li>trả dữ liệu qua kênh an toàn.</li>
+</ul>
+</section>
+<section class="content-section" id="21-x-l-s-c"><div class="section-label">MỤC 21</div>
+<h2 id="21-x-l-s-c">21. Xử lý sự cố</h2>
+<p>Hệ thống cần phát hiện:</p>
+<ul>
+<li>một tài khoản xem quá nhiều hồ sơ;</li>
+<li>xuất dữ liệu bất thường;</li>
+<li>cố tăng quyền;</li>
+<li>sử dụng khóa sai mục đích;</li>
+<li>kho lưu trữ bị mở công khai;</li>
+<li>audit ngừng hoạt động;</li>
+<li>thay đổi model hoặc policy trái phép;</li>
+<li>số lần thử biometric bất thường.</li>
+</ul>
+<p>Khi có sự cố:</p>
+<ol>
+<li>cô lập thành phần bị ảnh hưởng;</li>
+<li>thu hồi token và tài khoản liên quan;</li>
+<li>đổi khóa nếu cần;</li>
+<li>bảo toàn bằng chứng;</li>
+<li>xác định dữ liệu và người dùng bị ảnh hưởng;</li>
+<li>khôi phục từ bản sạch;</li>
+<li>Legal/DPO và Security quyết định việc thông báo;</li>
+<li>theo dõi hành động khắc phục.</li>
+</ol>
+</section>
+<section class="content-section" id="22-ki-m-th-tr-c-khi-s-d-ng-d-li-u-th-t"><div class="section-label">MỤC 22</div>
+<h2 id="22-ki-m-th-tr-c-khi-s-d-ng-d-li-u-th-t">22. Kiểm thử trước khi sử dụng dữ liệu thật</h2>
+<p>Các kiểm thử bắt buộc gồm:</p>
+<ul>
+<li>không tìm thấy thông tin cá nhân dạng plaintext;</li>
+<li>thiếu hoặc sai khóa thì không lưu được dữ liệu;</li>
+<li>thiếu căn cứ xử lý thì không upload được;</li>
+<li>audit lỗi thì không xem hoặc giải mã được;</li>
+<li>purge xóa được dữ liệu ở mọi nơi;</li>
+<li>CCCD thiếu mặt được xử lý đúng;</li>
+<li>hộ chiếu sai trang bị từ chối;</li>
+<li>MRZ sai số kiểm tra được chuyển review;</li>
+<li>ảnh mờ được yêu cầu chụp lại;</li>
+<li>QR hết hạn hoặc đã dùng không claim lại được;</li>
+<li>hai điện thoại không thể đồng thời claim cùng một QR;</li>
+<li>tạo QR mới làm QR cũ mất hiệu lực;</li>
+<li>capture token không xem được PII hoặc hồ sơ khác;</li>
+<li>refresh trình duyệt điện thoại không tạo evidence hoặc processing job trùng;</li>
+<li>máy tính đóng sau khi điện thoại đã claim không làm mất phiên đang thu thập;</li>
+<li>mất mạng khi upload video không buộc người dùng chụp lại giấy tờ;</li>
+<li>tín hiệu biometric không chắc chắn được chuyển review;</li>
+<li>lỗi hệ thống không biến thành kết luận gian lận;</li>
+<li>reviewer không có quyền thì không xem được hồ sơ.</li>
+</ul>
+<p>Model cũng phải được kiểm thử về:</p>
+<ul>
+<li>độ chính xác OCR;</li>
+<li>độ chính xác MRZ;</li>
+<li>tỷ lệ nhận nhầm và từ chối nhầm khuôn mặt;</li>
+<li>khả năng phát hiện spoof;</li>
+<li>hiệu năng trên các nhóm người dùng khác nhau.</li>
+</ul>
+</section>
+<section class="content-section" id="23-gi-i-th-ch-thu-t-ng"><div class="section-label">MỤC 23</div>
+<h2 id="23-gi-i-th-ch-thu-t-ng">23. Giải thích thuật ngữ</h2>
+<div class="table-scroll"><table><thead><tr><th>Thuật ngữ</th><th>Giải thích đơn giản</th></tr></thead><tbody><tr><td>eKYC</td><td>Xác minh danh tính điện tử</td></tr><tr><td>OCR</td><td>Công nghệ đọc chữ từ ảnh</td></tr><tr><td>MRZ</td><td>Hai dòng ký tự máy đọc được trên hộ chiếu</td></tr><tr><td>Check digit</td><td>Số dùng để kiểm tra một trường trong MRZ có được đọc hợp lệ không</td></tr><tr><td>Biometric</td><td>Dữ liệu sinh trắc học, trong luồng này chủ yếu là khuôn mặt và giọng nói nếu áp dụng</td></tr><tr><td>Face matching</td><td>So sánh khuôn mặt trong video với ảnh trên giấy tờ</td></tr><tr><td>Liveness</td><td>Kiểm tra người trước camera có phải người thật đang hiện diện không</td></tr><tr><td>Spoof</td><td>Hành vi giả mạo bằng ảnh, video phát lại, mặt nạ hoặc phương pháp khác</td></tr><tr><td>Deepfake</td><td>Nội dung hình ảnh, video hoặc âm thanh được tạo/chỉnh sửa bằng AI</td></tr><tr><td>Confidence</td><td>Mức độ chắc chắn của kết quả</td></tr><tr><td>Manual review</td><td>Nhân viên kiểm tra hồ sơ</td></tr><tr><td>QR handoff</td><td>Cơ chế chuyển bước thu thập của cùng một phiên từ máy tính sang điện thoại</td></tr><tr><td>Handoff token</td><td>Token ngắn hạn dùng một lần nằm trong QR để điện thoại nhận phiên</td></tr><tr><td>Capture token</td><td>Token giới hạn quyền để điện thoại upload evidence và submit phiên</td></tr><tr><td>PII</td><td>Thông tin có thể xác định một cá nhân</td></tr><tr><td>Plaintext</td><td>Dữ liệu có thể đọc trực tiếp vì chưa được mã hóa</td></tr><tr><td>KMS/HSM</td><td>Hệ thống quản lý và bảo vệ khóa mã hóa</td></tr><tr><td>Audit</td><td>Bản ghi ai đã làm gì, vào lúc nào và kết quả ra sao</td></tr><tr><td>Retention</td><td>Thời gian dữ liệu được phép lưu</td></tr><tr><td>Purge</td><td>Xóa dữ liệu khỏi toàn bộ nơi đang lưu</td></tr><tr><td>Fail closed</td><td>Thành phần bảo mật lỗi thì dừng, không bỏ qua kiểm soát</td></tr><tr><td>MFA</td><td>Đăng nhập bằng từ hai yếu tố xác thực trở lên</td></tr><tr><td>Policy</td><td>Bộ chính sách và quy tắc nghiệp vụ đã được phê duyệt</td></tr><tr><td>Reason code</td><td>Mã giải thích vì sao có một kết quả hoặc lỗi</td></tr></tbody></table></div>
+</section>
+<section class="content-section" id="24-t-m-t-t"><div class="section-label">MỤC 24</div>
+<h2 id="24-t-m-t-t">24. Tóm tắt</h2>
+<p>Toàn bộ thiết kế có thể được ghi nhớ bằng ba nguyên tắc:</p>
+<ol>
+<li><strong>Không đủ chắc chắn thì chuyển nhân viên, không tự đoán.</strong></li>
+<li><strong>Lỗi kỹ thuật không có nghĩa người dùng gian lận.</strong></li>
+<li><strong>Không có căn cứ xử lý, mã hóa hoặc audit thì không thu thập dữ liệu thật.</strong></li>
+</ol>
+<p>Luồng cuối cùng:</p>
+<div class="code-wrap"><span>LUỒNG</span><pre><code>Thu thập hợp lệ
+→ Xử lý an toàn
+→ Đưa ra kết quả có giải thích
+→ Cho phép nhân viên kiểm tra khi cần
+→ Lưu đúng thời hạn
+→ Xóa dữ liệu có bằng chứng</code></pre></div>
+</section></main>
+  </div>
+  <footer class="footer">Tạo từ tài liệu “EKYC_FLOW_DESIGN_SIMPLIFIED.md” · Nội dung cần Legal/DPO phê duyệt trước khi áp dụng với dữ liệu thật.</footer>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({startOnLoad:true,theme:"neutral",securityLevel:"strict",flowchart:{curve:"basis"}});
+  </script>
+  <script>
+    const root=document.documentElement, theme=document.getElementById("theme");
+    theme.onclick=()=>{root.dataset.theme=root.dataset.theme==="dark"?"light":"dark";localStorage.setItem("ekyc-theme",root.dataset.theme)};
+    root.dataset.theme=localStorage.getItem("ekyc-theme")||"light";
+    addEventListener("scroll",()=>{const h=document.documentElement;document.getElementById("progress").style.width=(100*h.scrollTop/(h.scrollHeight-h.clientHeight))+"%"},{passive:true});
+    const sections=[...document.querySelectorAll(".content-section")],links=[...document.querySelectorAll("#toc a")];
+    new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){links.forEach(a=>a.classList.toggle("active",a.hash==="#"+e.target.id))}}),{rootMargin:"-20% 0px -70%"}).observe && sections.forEach(s=>new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)links.forEach(a=>a.classList.toggle("active",a.hash==="#"+e.target.id))}),{rootMargin:"-20% 0px -70%"}).observe(s));
+    document.getElementById("search").addEventListener("input",e=>{const q=e.target.value.trim().toLocaleLowerCase("vi");sections.forEach(s=>s.classList.toggle("hidden",q&&!s.innerText.toLocaleLowerCase("vi").includes(q)));links.forEach(a=>{const target=document.querySelector(a.hash);a.classList.toggle("hidden",target&&target.classList.contains("hidden"))})});
+  </script>
+</body>
+</html>
