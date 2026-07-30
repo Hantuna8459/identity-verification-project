@@ -6,7 +6,7 @@ ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 WORKDIR /app
 COPY models/manifest.json /app/models/manifest.json
 COPY scripts/models.py /app/scripts/models.py
-COPY --from=cccd_artifact cccd_layout_yolov11.pt /tmp/cccd_layout_yolov11.pt
+COPY models/cccd_layout_yolov11.pt /tmp/cccd_layout_yolov11.pt
 RUN --mount=type=cache,target=/root/.cache/vid-models \
     --mount=type=secret,id=host_ca_bundle \
     if [ -f /run/secrets/host_ca_bundle ]; then \

@@ -9,7 +9,7 @@ Cập nhật: 2026-07-30.
 - Evidence adapter dùng encrypted local storage, opaque key và purge idempotent theo `purge_after`.
 - PostgreSQL, audit event, manual review queue và quyết định approve/reject.
 - Frontend mới cho desktop/mobile/admin; không sao chép frontend tham chiếu.
-- Model manifest chung, checksum pin, downloader build/local, CCCD qua BuildKit secret và offline runtime flags; binary không nằm trong Git.
+- Model manifest chung, checksum pin, downloader build/local, CCCD YOLO được lưu trong Git như ngoại lệ để clone là build được; các binary model khác không nằm trong Git.
 - SyncNet/S3FD lip-sync service load pretrained weights cục bộ và expose `POST /api/lip-sync`.
 - Docker image cho frontend/backend/lip-sync và Compose stack đầy đủ.
 

@@ -24,8 +24,6 @@ services:
       context: .
       dockerfile: backend/Dockerfile
       secrets: [host_ca_bundle]
-      additional_contexts:
-        cccd_artifact: ${CCCD_MODEL_DIR:-./.private-models}
     restart: unless-stopped
     depends_on:
       db:

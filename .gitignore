@@ -22,4 +22,4 @@ coverage/
 htmlcov/
 models/**
 !models/manifest.json
-.private-models/
+!models/cccd_layout_yolov11.pt

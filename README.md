@@ -21,7 +21,7 @@ Yêu cầu Docker có BuildKit. Node trên host không cần thiết khi chạy 
 cp .env.example .env
 ```
 
-Đổi toàn bộ secret/password trong `.env`. `HOST_CA_BUNDLE` phải trỏ tới CA bundle có thật. Đặt CCCD artifact đặc biệt trong thư mục `CCCD_MODEL_DIR` (mặc định `.private-models/`). CA được mount bằng BuildKit secret; CCCD đi qua named build context riêng. Cả hai không nằm trong main build context hoặc Git.
+Đổi toàn bộ secret/password trong `.env`. `HOST_CA_BUNDLE` phải trỏ tới CA bundle có thật. CA được mount bằng BuildKit secret và không được đưa vào Git. Riêng model YOLO CCCD được lưu trong Git để một bản clone mới có thể build ngay.
 
 ```bash
 DOCKER_BUILDKIT=1 docker compose --env-file .env build
@@ -53,24 +53,17 @@ Không dùng `down -v` nếu cần giữ database/evidence development.
 
 ## Model
 
-Git chỉ lưu `models/manifest.json`; mọi binary trong `models/` đều bị ignore. Docker model-fetcher tải các pretrained artifact có URL, kiểm tra size/SHA-256, và nhận CCCD artifact đặc biệt qua named build context tách khỏi main context.
-
-Chuẩn bị CCCD local:
-
-```bash
-mkdir -p .private-models
-cp /safe/path/cccd_layout_yolov11.pt .private-models/cccd_layout_yolov11.pt
-```
+Git lưu `models/manifest.json` và `models/cccd_layout_yolov11.pt` như một ngoại lệ. Docker model-fetcher dùng YOLO CCCD từ build context, tải các pretrained artifact còn lại có URL, rồi kiểm tra size/SHA-256 cho toàn bộ model.
 
 Tải model cho local development bằng cùng manifest:
 
 ```bash
 python3 scripts/models.py \
-  --artifact cccd-layout-yolov11=.private-models/cccd_layout_yolov11.pt
+  --artifact cccd-layout-yolov11=models/cccd_layout_yolov11.pt
 python3 scripts/models.py --verify-only
 ```
 
-Downloader ghi file tạm rồi replace atomically và retry có giới hạn. Docker không chấp nhận model binary từ build context. Production container đặt `HF_HUB_OFFLINE=1` và `TRANSFORMERS_OFFLINE=1`; runtime không tải model và readiness kiểm tra tồn tại, size cùng SHA-256 của toàn bộ artifact required.
+Downloader ghi file tạm rồi replace atomically và retry có giới hạn. Production container đặt `HF_HUB_OFFLINE=1` và `TRANSFORMERS_OFFLINE=1`; runtime không tải model và readiness kiểm tra tồn tại, size cùng SHA-256 của toàn bộ artifact required.
 
 ## Phát triển local
 

@@ -6,7 +6,7 @@
       "purpose": "CCCD layout, field and corner detection",
       "path": "cccd_layout_yolov11.pt",
       "source": "project-reference-artifact",
-      "delivery": "buildkit-secret:cccd_layout_model",
+      "delivery": "git-tracked-build-context",
       "revision": "V-ID-initial-import",
       "sha256": "343be4b5395fe08798cb96b32e020f029cff7af646b8eda7ebaaca4ace98c6d8",
       "size_bytes": 5549978,
