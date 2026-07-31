@@ -1,61 +1,323 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
+  "default_profile": "technical_demo",
   "models": [
     {
       "id": "cccd-layout-yolov11",
       "purpose": "CCCD layout, field and corner detection",
       "path": "cccd_layout_yolov11.pt",
       "source": "project-reference-artifact",
+      "source_repository": "../C2-App-036",
       "delivery": "git-tracked-build-context",
       "revision": "V-ID-initial-import",
       "sha256": "343be4b5395fe08798cb96b32e020f029cff7af646b8eda7ebaaca4ace98c6d8",
       "size_bytes": 5549978,
       "license": "PROJECT_REVIEW_REQUIRED",
-      "required": true
+      "required": true,
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "distribution_permission": "internal-demo-only",
+      "approval_reference": "AGENTS.md#Giai đoạn hiện tại"
+    },
+    {
+      "id": "rapidocr-ppocrv6-small",
+      "purpose": "CCCD text detection/OCR and passport TD3 MRZ detection/OCR",
+      "source": "PyPI rapidocr wheel",
+      "source_repository": "https://github.com/RapidAI/RapidOCR",
+      "revision": "3.9.2",
+      "license": "Apache-2.0",
+      "required": true,
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "distribution_permission": "allowed-with-license-notice",
+      "approval_reference": "AGENTS.md#Giai đoạn hiện tại",
+      "archive": {
+        "filename": "rapidocr-3.9.2-py3-none-any.whl",
+        "format": "zip",
+        "url": "https://files.pythonhosted.org/packages/55/ed/0ee9b9281986974be9d2406ae0134c8d7c91d2fc613f16ffda9701eeda6f/rapidocr-3.9.2-py3-none-any.whl",
+        "sha256": "04d6b8d151f823d930bd91910555f57bea897c0c44fa6794267b94cf9c1ef9a0",
+        "size_bytes": 27275208
+      },
+      "artifacts": [
+        {
+          "source_path": "rapidocr/config.yaml",
+          "path": "rapidocr/config.yaml",
+          "sha256": "06623941e188461a0bc263fe16175cb5e5f6f6b01f4387e546d3a741569fc021",
+          "size_bytes": 4225
+        },
+        {
+          "source_path": "rapidocr/models/PP-OCRv6_det_small.onnx",
+          "path": "rapidocr/PP-OCRv6_det_small.onnx",
+          "sha256": "090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f",
+          "size_bytes": 9929594
+        },
+        {
+          "source_path": "rapidocr/models/PP-OCRv6_rec_small.onnx",
+          "path": "rapidocr/PP-OCRv6_rec_small.onnx",
+          "sha256": "6f327246b50388f3c176ae304bd95767ea6dc0c9ae92153ef8cbe210b3c14884",
+          "size_bytes": 21234383
+        },
+        {
+          "source_path": "rapidocr/models/ch_ppocr_mobile_v2.0_cls_mobile.onnx",
+          "path": "rapidocr/ch_ppocr_mobile_v2.0_cls_mobile.onnx",
+          "sha256": "e47acedf663230f8863ff1ab0e64dd2d82b838fceb5957146dab185a89d6215c",
+          "size_bytes": 585532
+        }
+      ]
+    },
+    {
+      "id": "vietocr-vgg-transformer",
+      "purpose": "Optional Vietnamese OCR recognizer candidate",
+      "path": "vietocr/vietocr_vgg_transformer.pth",
+      "url": "https://vocr.vn/data/vietocr/vgg_transformer.pth",
+      "source_repository": "https://github.com/pbcquoc/vietocr",
+      "revision": "artifact-last-modified-2022-12-03",
+      "sha256": "380512193a8b6cbf6fad80deacdc9b6939d10d473d199892fc6408d13775ea59",
+      "size_bytes": 151815373,
+      "license": "WEIGHT_LICENSE_REVIEW_REQUIRED",
+      "required": false,
+      "approval_status": "quarantined",
+      "usage_scope": [],
+      "distribution_permission": "not-established",
+      "approval_reference": null
+    },
+    {
+      "id": "insightface-buffalo-l",
+      "purpose": "SCRFD face detection/landmarks and ArcFace face embedding",
+      "source": "InsightFace v0.7 release model pack",
+      "source_repository": "https://github.com/deepinsight/insightface",
+      "revision": "v0.7-3e64869",
+      "license": "NON_COMMERCIAL_RESEARCH_ONLY",
+      "required": true,
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "distribution_permission": "internal-evaluation-only-no-redistribution",
+      "approval_reference": "AGENTS.md#Giai đoạn hiện tại",
+      "archive": {
+        "filename": "insightface-v0.7-buffalo_l.zip",
+        "format": "zip",
+        "url": "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip",
+        "sha256": "80ffe37d8a5940d59a7384c201a2a38d4741f2f3c51eef46ebb28218a7b0ca2f",
+        "size_bytes": 288621354
+      },
+      "artifacts": [
+        {
+          "source_path": "1k3d68.onnx",
+          "path": "insightface/models/buffalo_l/1k3d68.onnx",
+          "sha256": "df5c06b8a0c12e422b2ed8947b8869faa4105387f199c477af038aa01f9a45cc",
+          "size_bytes": 143607619
+        },
+        {
+          "source_path": "2d106det.onnx",
+          "path": "insightface/models/buffalo_l/2d106det.onnx",
+          "sha256": "f001b856447c413801ef5c42091ed0cd516fcd21f2d6b79635b1e733a7109dbf",
+          "size_bytes": 5030888
+        },
+        {
+          "source_path": "det_10g.onnx",
+          "path": "insightface/models/buffalo_l/det_10g.onnx",
+          "sha256": "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91",
+          "size_bytes": 16923827
+        },
+        {
+          "source_path": "genderage.onnx",
+          "path": "insightface/models/buffalo_l/genderage.onnx",
+          "sha256": "4fde69b1c810857b88c64a335084f1c3fe8f01246c9a191b48c7bb756d6652fb",
+          "size_bytes": 1322532
+        },
+        {
+          "source_path": "w600k_r50.onnx",
+          "path": "insightface/models/buffalo_l/w600k_r50.onnx",
+          "sha256": "4c06341c33c2ca1f86781dab0e829f88ad5b64be9fba56e56bc9ebdefc619e43",
+          "size_bytes": 174383860
+        }
+      ]
     },
     {
       "id": "minifasnet-v2",
       "purpose": "Passive face liveness",
       "path": "minifasnet.onnx",
       "url": "https://github.com/yakhyo/face-anti-spoofing/releases/download/weights/MiniFASNetV2.onnx",
+      "source_repository": "https://github.com/yakhyo/face-anti-spoofing",
       "revision": "weights-release",
       "sha256": "b32929adc2d9c34b9486f8c4c7bc97c1b69bc0ea9befefc380e4faae4e463907",
       "size_bytes": 1743581,
-      "license": "UPSTREAM_REVIEW_REQUIRED",
-      "required": true
+      "license": "Apache-2.0-UPSTREAM_REVIEW_REQUIRED",
+      "required": true,
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "distribution_permission": "internal-demo-only",
+      "approval_reference": "AGENTS.md#Giai đoạn hiện tại"
     },
     {
       "id": "deepfake-detector-v2-q4",
       "purpose": "Visual deepfake detection",
       "path": "deepfake_detector.onnx",
       "url": "https://huggingface.co/onnx-community/Deep-Fake-Detector-v2-Model-ONNX/resolve/main/onnx/model_q4.onnx",
+      "source_repository": "https://huggingface.co/onnx-community/Deep-Fake-Detector-v2-Model-ONNX",
       "revision": "main-imported-2026-07-30",
       "sha256": "e239476e94466b225d490147c2f3c1ea64e969f0e09ae4f772e15a16d8e393a9",
       "size_bytes": 56757898,
-      "license": "UPSTREAM_REVIEW_REQUIRED",
-      "required": true
+      "license": "Apache-2.0-UPSTREAM_REVIEW_REQUIRED",
+      "required": true,
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "distribution_permission": "internal-demo-only",
+      "approval_reference": "AGENTS.md#Giai đoạn hiện tại"
+    },
+    {
+      "id": "vosk-small-vn-0.4",
+      "purpose": "Vietnamese voice challenge automatic speech recognition",
+      "source": "Vosk official model archive",
+      "source_repository": "https://alphacephei.com/vosk/models",
+      "revision": "vosk-model-small-vn-0.4-2023-02-09",
+      "license": "Apache-2.0",
+      "required": true,
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "distribution_permission": "allowed-with-license-notice",
+      "approval_reference": "AGENTS.md#Giai đoạn hiện tại",
+      "archive": {
+        "filename": "vosk-model-small-vn-0.4.zip",
+        "format": "zip",
+        "url": "https://alphacephei.com/vosk/models/vosk-model-small-vn-0.4.zip",
+        "sha256": "efe5c8494212110471a79befc48c79da679e5b1fc52a4ffb500222ff86d622e5",
+        "size_bytes": 33656337
+      },
+      "artifacts": [
+        {
+          "source_path": "vosk-model-small-vn-0.4/conf/model.conf",
+          "path": "vosk/vosk-model-small-vn-0.4/conf/model.conf",
+          "sha256": "223c8edccb85b8f89a7811cb4ef47d3107b89bf3c5c27f066d5379ca683d4bc2",
+          "size_bytes": 272
+        },
+        {
+          "source_path": "vosk-model-small-vn-0.4/conf/mfcc.conf",
+          "path": "vosk/vosk-model-small-vn-0.4/conf/mfcc.conf",
+          "sha256": "42b1450e80757f2702bd640ff6c0aa4b3809610754f883bac6fd26eea2699107",
+          "size_bytes": 82
+        },
+        {
+          "source_path": "vosk-model-small-vn-0.4/ivector/final.dubm",
+          "path": "vosk/vosk-model-small-vn-0.4/ivector/final.dubm",
+          "sha256": "e3d7cfd040cf11dabc219332399c5eab1846cb33596d60a764cf89aed4fa91a8",
+          "size_bytes": 168048
+        },
+        {
+          "source_path": "vosk-model-small-vn-0.4/ivector/final.mat",
+          "path": "vosk/vosk-model-small-vn-0.4/ivector/final.mat",
+          "sha256": "6b0f6024877d98feae6055dea684484b55b639f8577cd5283af83eae5f5814b4",
+          "size_bytes": 22575
+        },
+        {
+          "source_path": "vosk-model-small-vn-0.4/ivector/global_cmvn.stats",
+          "path": "vosk/vosk-model-small-vn-0.4/ivector/global_cmvn.stats",
+          "sha256": "bb24266f03bfe29942b72bbbda6dea1e3237912b1dfe90bbcb0a0acbe5984256",
+          "size_bytes": 538
+        },
+        {
+          "source_path": "vosk-model-small-vn-0.4/ivector/final.ie",
+          "path": "vosk/vosk-model-small-vn-0.4/ivector/final.ie",
+          "sha256": "f88483415363869698b99fef93c349f9b12c40daf4cbe6ba9636069388fe256f",
+          "size_bytes": 8288887
+        },
+        {
+          "source_path": "vosk-model-small-vn-0.4/ivector/splice.conf",
+          "path": "vosk/vosk-model-small-vn-0.4/ivector/splice.conf",
+          "sha256": "9f0c5f7c82d18eaf25d8bce470efa9f7741f88411fe428774bc0a9bb69a24756",
+          "size_bytes": 35
+        },
+        {
+          "source_path": "vosk-model-small-vn-0.4/ivector/online_cmvn.conf",
+          "path": "vosk/vosk-model-small-vn-0.4/ivector/online_cmvn.conf",
+          "sha256": "a2f3571754b64297cb7efb2e7ca3df61995c5a45fcbb97188f90613552bb2dfe",
+          "size_bytes": 95
+        },
+        {
+          "source_path": "vosk-model-small-vn-0.4/am/final.mdl",
+          "path": "vosk/vosk-model-small-vn-0.4/am/final.mdl",
+          "sha256": "159cf4fc17401578b7b6ee28e5f913f16a1c9a232fdfecac3168e941ee7fbd4c",
+          "size_bytes": 9232677
+        },
+        {
+          "source_path": "vosk-model-small-vn-0.4/README",
+          "path": "vosk/vosk-model-small-vn-0.4/README",
+          "sha256": "35038e10d5af1ec55d0ac7865ba2bc3904d288a60dfe71cbcd452da8ccfba1ad",
+          "size_bytes": 125
+        },
+        {
+          "source_path": "vosk-model-small-vn-0.4/graph/disambig_tid.int",
+          "path": "vosk/vosk-model-small-vn-0.4/graph/disambig_tid.int",
+          "sha256": "bb8b4dbcce6377e43846aa7c05fecfbde0a2d1cbeae840ceaa462dfb46466466",
+          "size_bytes": 65
+        },
+        {
+          "source_path": "vosk-model-small-vn-0.4/graph/phones/word_boundary.int",
+          "path": "vosk/vosk-model-small-vn-0.4/graph/phones/word_boundary.int",
+          "sha256": "a0d228765d6512efbc33fcc7b6f6a3ec274598d08b2e666489358f790e105365",
+          "size_bytes": 11267
+        },
+        {
+          "source_path": "vosk-model-small-vn-0.4/graph/Gr.fst",
+          "path": "vosk/vosk-model-small-vn-0.4/graph/Gr.fst",
+          "sha256": "f4b30ffb2888a316d5244b724707bf79ed93e3d91607c893d97cb7a4703ef46a",
+          "size_bytes": 24998257
+        },
+        {
+          "source_path": "vosk-model-small-vn-0.4/graph/HCLr.fst",
+          "path": "vosk/vosk-model-small-vn-0.4/graph/HCLr.fst",
+          "sha256": "42639a7cf8e2be1b74f510af0106e690aa9a7ee73490089e0125ed6f703815db",
+          "size_bytes": 10567442
+        }
+      ]
     },
     {
       "id": "syncnet-v2",
       "purpose": "Audio-video lip synchronization",
       "path": "lipsync/syncnet_v2.model",
       "url": "https://huggingface.co/lithiumice/syncnet/resolve/main/syncnet_v2.model",
+      "source_repository": "https://huggingface.co/lithiumice/syncnet",
       "revision": "main-imported-2026-07-30",
       "sha256": "961e8696f888fce4f3f3a6c3d5b3267cf5b343100b238e79b2659bff2c605442",
       "size_bytes": 54573114,
-      "license": "UPSTREAM_REVIEW_REQUIRED",
-      "required": true
+      "license": "NOASSERTION",
+      "required": true,
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "distribution_permission": "internal-demo-only-no-redistribution",
+      "approval_reference": "AGENTS.md#Giai đoạn hiện tại"
     },
     {
       "id": "s3fd-face",
       "purpose": "Face tracking for lip synchronization",
       "path": "lipsync/sfd_face.pth",
       "url": "https://huggingface.co/lithiumice/syncnet/resolve/main/sfd_face.pth",
+      "source_repository": "https://huggingface.co/lithiumice/syncnet",
       "revision": "main-imported-2026-07-30",
       "sha256": "d54a87c2b7543b64729c9a25eafd188da15fd3f6e02f0ecec76ae1b30d86c491",
       "size_bytes": 89844381,
-      "license": "UPSTREAM_REVIEW_REQUIRED",
-      "required": true
+      "license": "NOASSERTION",
+      "required": true,
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "distribution_permission": "internal-demo-only-no-redistribution",
+      "approval_reference": "AGENTS.md#Giai đoạn hiện tại"
     }
   ]
 }

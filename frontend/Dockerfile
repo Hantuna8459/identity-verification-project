@@ -14,8 +14,10 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY frontend/ ./
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000/api/v2
 ARG NEXT_PUBLIC_VID_CLIENT_KEY=local-vid-client-key
+ARG NEXT_PUBLIC_WEB_CAPTURE_ENABLED=false
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
-    NEXT_PUBLIC_VID_CLIENT_KEY=$NEXT_PUBLIC_VID_CLIENT_KEY
+    NEXT_PUBLIC_VID_CLIENT_KEY=$NEXT_PUBLIC_VID_CLIENT_KEY \
+    NEXT_PUBLIC_WEB_CAPTURE_ENABLED=$NEXT_PUBLIC_WEB_CAPTURE_ENABLED
 RUN --mount=type=secret,id=host_ca_bundle \
     if [ -f /run/secrets/host_ca_bundle ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/host_ca_bundle; fi; \
     npm run build

@@ -44,6 +44,9 @@ services:
       EVIDENCE_DIR: /app/data/evidence
       MODEL_DIR: /app/models
       REQUIRE_MODELS: "true"
+      MODEL_PROFILE: technical_demo
+      AI_DEVICE: ${AI_DEVICE:-cpu}
+      MAX_VIDEO_FRAMES: ${MAX_VIDEO_FRAMES:-12}
       HF_HUB_OFFLINE: "1"
       TRANSFORMERS_OFFLINE: "1"
       LIPSYNC_URL: http://lipsync:8002
@@ -106,6 +109,7 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v2}
         NEXT_PUBLIC_VID_CLIENT_KEY: ${VID_CLIENT_KEY:-local-vid-client-key}
+        NEXT_PUBLIC_WEB_CAPTURE_ENABLED: ${WEB_CAPTURE_ENABLED:-true}
     restart: unless-stopped
     depends_on:
       backend:

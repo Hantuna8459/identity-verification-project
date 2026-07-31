@@ -3,7 +3,7 @@ FROM python:3.12-slim AS model-fetcher
 WORKDIR /app
 COPY models/manifest.json /app/models/manifest.json
 COPY scripts/models.py /app/scripts/models.py
-RUN --mount=type=cache,target=/root/.cache/vid-models \
+RUN --mount=type=cache,target=/var/cache/vid-models \
     --mount=type=secret,id=host_ca_bundle \
     if [ -f /run/secrets/host_ca_bundle ]; then \
       export SSL_CERT_FILE=/run/secrets/host_ca_bundle; \
@@ -12,6 +12,8 @@ RUN --mount=type=cache,target=/root/.cache/vid-models \
     python /app/scripts/models.py \
       --models-dir /app/models \
       --manifest /app/models/manifest.json \
+      --profile technical_demo \
+      --cache-dir /var/cache/vid-models \
       --include syncnet-v2 \
       --include s3fd-face
 
