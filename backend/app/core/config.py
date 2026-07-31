@@ -40,7 +40,10 @@ class Settings(BaseSettings):
     model_profile: str = "technical_demo"
     ai_device: str = "cpu"
     lipsync_url: str | None = None
-    max_video_frames: int = 12
+    max_video_frames: int = 36
+    replay_suspicious_threshold: float = 0.62
+    camera_injection_suspicious_threshold: float = 0.60
+    demo_ocr_rerun_enabled: bool = False
 
     @field_validator("cors_origins", "webhook_allowlist", mode="before")
     @classmethod

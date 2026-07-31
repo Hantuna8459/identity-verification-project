@@ -52,7 +52,9 @@ class LocalOcr:
         output: Any = self._engine(decode_image(payload))
         return list(output.txts or ()), [float(score) for score in (output.scores or ())]
 
-    def inspect_document(self, payload: bytes, *, passport: bool) -> dict[str, Any]:
+    def inspect_document(
+        self, payload: bytes, *, passport: bool, include_text: bool = False
+    ) -> dict[str, Any]:
         lines, scores = self.read(payload)
         result: dict[str, Any] = {
             "status": "OK" if lines else "INCONCLUSIVE",
@@ -62,6 +64,8 @@ class LocalOcr:
         }
         if passport:
             result["mrz"] = inspect_td3(lines)
+        if include_text:
+            result["lines"] = lines
         return result
 
 
@@ -427,6 +431,21 @@ def video_frames(media_path: Path, maximum: int) -> list[np.ndarray]:
     if not frames:
         raise InvalidEvidenceError("Video contains no decodable frames")
     return frames
+
+
+def video_metadata(media_path: Path) -> dict[str, float | int | None]:
+    capture = cv2.VideoCapture(str(media_path))
+    if not capture.isOpened():
+        raise InvalidEvidenceError("Evidence is not a decodable video")
+    fps = float(capture.get(cv2.CAP_PROP_FPS))
+    frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+    duration_ms = (frame_count / fps * 1000.0) if fps > 0.0 and frame_count > 0 else None
+    capture.release()
+    return {
+        "fps": fps if fps > 0.0 else None,
+        "frame_count": frame_count if frame_count > 0 else None,
+        "duration_ms": duration_ms,
+    }
 
 
 def call_lipsync(url: str, media_path: Path, content_type: str) -> dict[str, Any]:

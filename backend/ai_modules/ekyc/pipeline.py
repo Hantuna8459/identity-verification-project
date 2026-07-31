@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 
+from ai_modules.ekyc.anti_spoof import inspect_camera_injection, inspect_replay_attack
 from ai_modules.ekyc.runtime import (
     CccdLayoutOcr,
     InvalidEvidenceError,
@@ -19,6 +20,7 @@ from ai_modules.ekyc.runtime import (
     inspect_head_turn_sequence,
     media_suffix,
     video_frames,
+    video_metadata,
 )
 
 
@@ -31,12 +33,16 @@ class TechnicalDemoPipeline:
         *,
         device: str = "cpu",
         lipsync_url: str | None = None,
-        max_video_frames: int = 12,
+        max_video_frames: int = 36,
+        replay_suspicious_threshold: float = 0.62,
+        camera_injection_suspicious_threshold: float = 0.60,
     ) -> None:
         self._model_dir = model_dir
         self._device = device
         self._lipsync_url = lipsync_url
         self._max_video_frames = max(1, max_video_frames)
+        self._replay_suspicious_threshold = replay_suspicious_threshold
+        self._camera_injection_suspicious_threshold = camera_injection_suspicious_threshold
         self._ocr: LocalOcr | None = None
         self._layout: CccdLayoutOcr | None = None
         self._face: ScrfdArcFace | None = None
@@ -73,6 +79,24 @@ class TechnicalDemoPipeline:
             self._voice = VoiceVerifier(self._model_dir, self._device)
         return self._voice
 
+    def analyze_ocr(self, document_type: str, evidence: list[Any]) -> dict[str, Any]:
+        """Run only OCR for an authorized, transient technical-demo disclosure."""
+        by_type = {entry.evidence_type: entry for entry in evidence}
+        passport = document_type == "PASSPORT_TD3"
+        document_types = ["PASSPORT_PAGE"] if passport else ["DOCUMENT_FRONT", "DOCUMENT_BACK"]
+        results: dict[str, Any] = {}
+        for evidence_type in document_types:
+            try:
+                entry = by_type[evidence_type]
+                results[evidence_type.lower()] = self._ocr_engine().inspect_document(
+                    entry.payload,
+                    passport=passport,
+                    include_text=True,
+                )
+            except Exception as exc:  # capability isolation
+                results[evidence_type.lower()] = self._failure(exc)
+        return results
+
     def analyze(
         self,
         document_type: str,
@@ -104,6 +128,8 @@ class TechnicalDemoPipeline:
         deepfake_result: dict[str, Any]
         voice_result: dict[str, Any]
         lipsync_result: dict[str, Any]
+        replay_result: dict[str, Any]
+        camera_injection_result: dict[str, Any]
         try:
             with tempfile.NamedTemporaryFile(
                 suffix=media_suffix(video.content_type), delete=False
@@ -111,6 +137,7 @@ class TechnicalDemoPipeline:
                 stream.write(video.payload)
                 temporary_path = Path(stream.name)
             frames = video_frames(temporary_path, self._max_video_frames)
+            metadata = video_metadata(temporary_path)
             document_entry = by_type[document_types[0]]
             document_image = decode_image(document_entry.payload)
             face_engine = self._face_engine()
@@ -128,6 +155,20 @@ class TechnicalDemoPipeline:
                 for _, candidate in live_candidates
             ]
             active_liveness_result = inspect_head_turn_sequence(yaw_samples)
+            replay_result = inspect_replay_attack(
+                frames, suspicious_threshold=self._replay_suspicious_threshold
+            )
+            camera_injection_result = inspect_camera_injection(
+                frames=frames,
+                fps=metadata["fps"],
+                frame_count=(
+                    int(metadata["frame_count"]) if metadata["frame_count"] is not None else None
+                ),
+                duration_ms=metadata["duration_ms"],
+                active_liveness=active_liveness_result,
+                replay=replay_result,
+                suspicious_threshold=self._camera_injection_suspicious_threshold,
+            )
             live_image, live_face = max(
                 live_candidates,
                 key=lambda item: float(item[1]["score"]),
@@ -170,6 +211,8 @@ class TechnicalDemoPipeline:
             liveness_result = dict(failure)
             active_liveness_result = dict(failure)
             deepfake_result = dict(failure)
+            replay_result = dict(failure)
+            camera_injection_result = dict(failure)
 
         if temporary_path is None:
             voice_result = {"status": "UNAVAILABLE", "error_type": "VideoTemporaryFileError"}
@@ -195,6 +238,8 @@ class TechnicalDemoPipeline:
             "face_match": face_result,
             "liveness": liveness_result,
             "active_liveness": active_liveness_result,
+            "replay_attack": replay_result,
+            "camera_injection": camera_injection_result,
             "visual_deepfake": deepfake_result,
             "voice_challenge": voice_result,
             "lip_sync": lipsync_result,

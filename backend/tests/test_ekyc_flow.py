@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from app.adapters.analyzer import OfflineModelAnalyzer
+
 VID_HEADERS = {"X-V-ID-Client-Key": "test-vid-key"}
 REVIEWER_HEADERS = {"Authorization": "Bearer test-reviewer-token"}
 
@@ -80,6 +82,62 @@ def test_full_cccd_qr_capture_and_manual_review(client: TestClient) -> None:
     assert status.status_code == 200
     assert status.json()["stage"] == "COMPLETED"
     assert status.json()["decision"] == "APPROVED"
+
+
+def test_demo_ocr_rerun_decrypts_only_document_evidence_without_persisting(
+    client: TestClient, monkeypatch
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_analyze_document(self, document_type, evidence):
+        captured["document_type"] = document_type
+        captured["evidence_types"] = sorted(item.evidence_type for item in evidence)
+        captured["payloads"] = [item.payload for item in evidence]
+        return {
+            "schema_version": "demo-ocr-rerun/1.0",
+            "transient": True,
+            "documents": {
+                "document_front": {
+                    "execution_status": "COMPLETED",
+                    "engine": "test-ocr",
+                    "lines": ["SYNTHETIC OCR TEXT"],
+                }
+            },
+        }
+
+    monkeypatch.setattr(OfflineModelAnalyzer, "analyze_document", fake_analyze_document)
+    flow = create_claimed_session(client)
+    capture_headers = {"Authorization": f"Bearer {flow['capture_token']}"}
+    client.post("/api/v2/ekyc/capture/voice-challenge", headers=capture_headers)
+    upload(client, flow["capture_token"], "DOCUMENT_FRONT", "image/jpeg")
+    upload(client, flow["capture_token"], "DOCUMENT_BACK", "image/jpeg")
+    upload(client, flow["capture_token"], "SELFIE_VIDEO", "video/webm")
+    submitted = client.post("/api/v2/ekyc/capture/submit", headers=capture_headers)
+    assert submitted.json()["stage"] == "MANUAL_REVIEW"
+
+    denied = client.post(f"/api/v2/reviews/{flow['session_id']}/ocr-runs")
+    assert denied.status_code == 401
+    response = client.post(
+        f"/api/v2/reviews/{flow['session_id']}/ocr-runs",
+        headers=REVIEWER_HEADERS,
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json()["transient"] is True
+    assert response.json()["documents"]["document_front"]["lines"] == ["SYNTHETIC OCR TEXT"]
+    assert captured == {
+        "document_type": "CAN_CUOC_2024",
+        "evidence_types": ["DOCUMENT_BACK", "DOCUMENT_FRONT"],
+        "payloads": [b"synthetic-evidence-content", b"synthetic-evidence-content"],
+    }
+
+    detail = client.get(f"/api/v2/reviews/{flow['session_id']}", headers=REVIEWER_HEADERS).json()
+    assert "SYNTHETIC OCR TEXT" not in str(detail["analysis"])
+    events = client.get("/api/v2/admin/audit-events", headers=REVIEWER_HEADERS).json()
+    rerun_events = [event for event in events if event["action"] == "review.ocr_rerun"]
+    assert len(rerun_events) == 1
+    assert "SYNTHETIC OCR TEXT" not in str(rerun_events[0])
 
 
 def test_passport_requires_single_td3_page(client: TestClient) -> None:

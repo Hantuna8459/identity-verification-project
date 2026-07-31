@@ -4,7 +4,7 @@ import uuid
 from typing import Annotated, Any
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Response, UploadFile
 from sqlmodel import Session, select
 
 from app.adapters.analyzer import OfflineModelAnalyzer
@@ -43,6 +43,8 @@ def service(db: DbDep, settings: SettingsDep) -> EkycService:
             device=settings.ai_device,
             lipsync_url=settings.lipsync_url,
             max_video_frames=settings.max_video_frames,
+            replay_suspicious_threshold=settings.replay_suspicious_threshold,
+            camera_injection_suspicious_threshold=settings.camera_injection_suspicious_threshold,
         ),
     )
 
@@ -321,6 +323,7 @@ def list_reviews(
 def review_detail(
     session_id: uuid.UUID,
     db: DbDep,
+    settings: SettingsDep,
     _: Annotated[str, Depends(require_reviewer)],
 ) -> dict[str, Any]:
     item = db.get(EkycSession, session_id)
@@ -344,6 +347,10 @@ def review_detail(
             "notes": task.notes,
         },
         "analysis": item.analysis,
+        "demo_capabilities": {
+            "ocr_rerun": settings.demo_ocr_rerun_enabled
+            and settings.model_profile == "technical_demo"
+        },
         "evidence": [
             {
                 "id": entry.id,
@@ -355,6 +362,23 @@ def review_detail(
             for entry in evidence
         ],
     }
+
+
+@router.post("/reviews/{session_id}/ocr-runs")
+def rerun_review_ocr(
+    session_id: uuid.UUID,
+    response: Response,
+    core: Annotated[EkycService, Depends(service)],
+    reviewer: Annotated[str, Depends(require_reviewer)],
+) -> dict[str, Any]:
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
+    try:
+        return core.rerun_document_ocr(session_id, reviewer)
+    except PermissionError as exc:
+        raise HTTPException(status_code=404, detail="Demo OCR rerun is unavailable") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.post("/reviews/{session_id}/decisions")

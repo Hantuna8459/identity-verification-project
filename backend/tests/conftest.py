@@ -28,6 +28,7 @@ def client(tmp_path) -> Generator[TestClient, None, None]:
         evidence_key="test-evidence-key",
         vid_client_key="test-vid-key",
         reviewer_token="test-reviewer-token",
+        demo_ocr_rerun_enabled=True,
     )
 
     def db_override() -> Generator[Session, None, None]:

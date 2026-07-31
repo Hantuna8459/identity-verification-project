@@ -41,13 +41,25 @@ offline và khả năng thay model qua adapter/configuration.
 - InsightFace `buffalo_l` load trực tiếp SCRFD/ArcFace bằng ONNX Runtime, không
   dùng runtime registry/download của package InsightFace.
 - MiniFASNetV2 liveness và Deep-Fake-Detector-v2 inference ONNX.
+- Replay attack và camera injection heuristic chạy offline, không cần thêm pretrained weight; kết quả được expose trong `capabilities.replay_attack` và `capabilities.camera_injection`.
 - Voice challenge dùng Vosk Vietnamese small 0.4 local; transcript chỉ tồn tại
   trong memory và không được lưu vào analysis.
 - SyncNetV2/S3FD lip-sync service được gọi từ pipeline khi `LIPSYNC_URL` cấu hình.
-- Submit đọc evidence qua storage port và chỉ lưu capability status/score/engine;
-  không lưu OCR text, MRZ, transcript, embedding hoặc raw evidence.
+- Analysis dùng contract `model-analysis/1.2`: `execution_status` chỉ phản ánh model
+  có chạy được hay không; `review_signal` phản ánh tín hiệu cho reviewer; score,
+  hướng diễn giải và trạng thái phê duyệt threshold được tách riêng. Face match,
+  liveness và visual deepfake không bị gán pass/fail khi threshold production chưa
+  được phê duyệt; voice challenge, active liveness, lip-sync và anti-injection có
+  reason code rõ ràng khi mismatch, thiếu bước hoặc đáng ngờ.
+- Submit đọc evidence qua storage port và chỉ lưu execution/review signal, metric và
+  metadata an toàn; không lưu OCR text, MRZ, transcript, embedding hoặc raw evidence.
 - Docker backend/lip-sync images build thành công, verify mọi artifact trong
   runtime layer và smoke-load mọi engine bằng user không đặc quyền.
+- Reviewer dùng full-screen dialog với typography phù hợp, tách kết quả OCR khỏi
+  model telemetry và chỉ đặt score chưa có threshold trong chi tiết kỹ thuật.
+  Feature flag `DEMO_OCR_RERUN_ENABLED` cho phép reviewer chủ động giải mã document
+  evidence trong memory và chạy lại riêng OCR; response không cache, output không
+  persist và audit không chứa OCR text.
 - Mọi kết quả technical demo luôn route sang `MANUAL_REVIEW`.
 
 ## Trạng thái model và governance
@@ -73,9 +85,13 @@ có approval mới. SyncNet/S3FD và custom CCCD YOLO vẫn còn rủi ro licens
 - Voice hiện kiểm tra chuỗi sáu chữ số bằng ASR, chưa phải speaker verification.
 - Active-liveness kỹ thuật dùng landmark SCRFD để kiểm tra đủ chuỗi chính diện,
   hai hướng quay đối nhau và các lần trở về giữa; kết quả thiếu bước là
-  `INCONCLUSIVE` với reason code riêng. Signal này chưa benchmark/calibrate và
-  chưa chứng minh khả năng chống replay hoặc camera injection.
+  `INCONCLUSIVE` với reason code riêng. Replay attack và camera injection heuristic
+  đã được nối vào pipeline, dùng duplication/flicker, motion, video metadata và
+  challenge timing; output có score, threshold, suspicious, reason codes và warnings.
+  Các signal này chưa benchmark/calibrate và chưa được coi là bằng chứng chống spoof
+  production.
 - Lỗi capability trả `INCONCLUSIVE`/`UNAVAILABLE` và không được diễn giải là fraud.
+- Heuristic replay/camera dựa trên tối đa 36 frame sample; cần benchmark thêm với replay màn hình, frame freeze và camera injection thực tế.
 
 ## Contract chưa triển khai hoàn chỉnh
 
@@ -88,10 +104,21 @@ có approval mới. SyncNet/S3FD và custom CCCD YOLO vẫn còn rủi ro licens
 
 1. Bổ sung fixture synthetic/media hợp lệ để chạy full submit qua tất cả engine,
    thay vì chỉ unit test và smoke inference từng model.
-2. Hiển thị capability status/score an toàn trong admin UI nếu cần cho buổi demo.
-3. Benchmark riêng cho CCCD 2021, căn cước 2024 và passport Việt Nam TD3.
-4. Kiểm thử tải đồng thời/resource limit và timeout của pipeline trên máy demo.
-5. Chốt cách trình bày license notice cho các artifact được phép dùng nội bộ.
+2. Tạo luồng OCR evaluation độc lập với manual review, dùng fixture có ground truth
+   và báo cáo field exact match, CER/WER, MRZ/check-digit, latency theo document
+   variant và version model/pipeline. Luồng này không thay đổi trạng thái session
+   và không dùng confidence thay cho accuracy.
+3. Tạo luồng liveness evaluation độc lập với manual review, bao phủ bona-fide,
+   replay màn hình, frame freeze, camera injection và các điều kiện capture; báo
+   cáo theo version model/config và chưa đặt threshold production khi chưa được
+   benchmark, review và phê duyệt.
+4. Bổ sung fixture synthetic/media hợp lệ riêng cho CCCD 2021, căn cước 2024 và
+   passport Việt Nam TD3.
+5. Kiểm thử tải đồng thời/resource limit và timeout của pipeline trên máy demo.
+6. Chốt cách trình bày license notice cho các artifact được phép dùng nội bộ.
+7. Sau technical demo, xóa `DEMO_OCR_RERUN_ENABLED` và endpoint `ocr-runs`;
+   thay bằng encrypted structured-result store cùng controlled disclosure đã được
+   phân quyền, audit và phê duyệt cho môi trường mục tiêu.
 
 ## Điều kiện để gọi là MVP feature-complete
 

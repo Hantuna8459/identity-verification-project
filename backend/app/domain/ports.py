@@ -36,6 +36,12 @@ class EkycAnalyzer(Protocol):
         evidence: list[EvidencePayload],
     ) -> dict[str, Any]: ...
 
+    def analyze_document(
+        self,
+        document_type: str,
+        evidence: list[EvidencePayload],
+    ) -> dict[str, Any]: ...
+
 
 class WebhookNotifier(Protocol):
     def session_changed(self, session_id: uuid.UUID, stage: str, decision: str) -> None: ...

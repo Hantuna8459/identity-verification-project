@@ -229,6 +229,53 @@ class EkycService:
         self.db.refresh(item)
         return item
 
+    def rerun_document_ocr(self, session_id: uuid.UUID, reviewer_id: str) -> dict[str, Any]:
+        if (
+            not self.settings.demo_ocr_rerun_enabled
+            or self.settings.model_profile != "technical_demo"
+        ):
+            raise PermissionError("Demo OCR rerun is disabled")
+        item = self.db.get(EkycSession, session_id)
+        review = self.db.exec(select(ReviewTask).where(ReviewTask.session_id == session_id)).first()
+        if item is None or review is None or review.status != "OPEN":
+            raise ValueError("Open review task not found")
+
+        expected_types = (
+            {"PASSPORT_PAGE"}
+            if item.document_type == "PASSPORT_TD3"
+            else {"DOCUMENT_FRONT", "DOCUMENT_BACK"}
+        )
+        evidence = [
+            entry
+            for entry in self.db.exec(
+                select(Evidence).where(Evidence.session_id == session_id)
+            ).all()
+            if entry.evidence_type in expected_types
+        ]
+        present_types = {entry.evidence_type for entry in evidence}
+        missing = sorted(expected_types - present_types)
+        if missing:
+            raise ValueError(f"Missing document evidence: {', '.join(missing)}")
+
+        payloads = [
+            EvidencePayload(
+                evidence_type=entry.evidence_type,
+                content_type=entry.content_type,
+                payload=self.storage.get(entry.storage_key),
+            )
+            for entry in evidence
+        ]
+        result = self.analyzer.analyze_document(item.document_type, payloads)
+        self._audit(
+            item.id,
+            "REVIEWER",
+            reviewer_id,
+            "review.ocr_rerun",
+            {"document_type": item.document_type, "evidence_types": sorted(present_types)},
+        )
+        self.db.commit()
+        return result
+
     def decide(
         self, session_id: uuid.UUID, reviewer_id: str, decision: str, notes: str
     ) -> EkycSession:

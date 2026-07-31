@@ -132,6 +132,12 @@ Nếu evidence không đọc được, model/service thiếu hoặc inference l�
 trả `INCONCLUSIVE`/`UNAVAILABLE`; session vẫn vào `MANUAL_REVIEW`. Readiness sẽ
 trả 503 khi `REQUIRE_MODELS=true` và artifact required thiếu/sai checksum.
 
+Trong technical demo, `DEMO_OCR_RERUN_ENABLED=true` bật thao tác reviewer chạy
+lại riêng OCR giấy tờ. Backend giải mã document evidence trong memory, không đọc
+selfie/video, không persist OCR text, trả `Cache-Control: no-store` và audit chỉ
+ghi loại giấy tờ/evidence. Feature này phải tắt ngoài technical demo và được thay
+bằng encrypted structured-result store cùng controlled disclosure.
+
 ## Phát triển local
 
 Backend (Python 3.11+):
