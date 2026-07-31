@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -11,9 +11,9 @@ class LipSyncResponse(BaseModel):
     is_fake: bool
     confidence: float
     manipulation_probability: float
-    av_offset_frames: Optional[int] = None
-    min_distance: Optional[float] = None
-    sync_confidence: Optional[float] = None
-    face_detected: Optional[bool] = None
-    detail: Optional[str] = None
+    av_offset_frames: int | None = None
+    min_distance: float | None = None
+    sync_confidence: float | None = None
+    face_detected: bool | None = None
+    detail: str | None = None
     engine: str = "syncnet_hf"

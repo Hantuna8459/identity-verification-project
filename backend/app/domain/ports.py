@@ -20,8 +20,21 @@ class EvidenceStorage(Protocol):
     def delete(self, storage_key: str) -> None: ...
 
 
+@dataclass(frozen=True)
+class EvidencePayload:
+    evidence_type: str
+    content_type: str
+    payload: bytes
+
+
 class EkycAnalyzer(Protocol):
-    def analyze(self, session_id: uuid.UUID, evidence_types: set[str]) -> dict[str, Any]: ...
+    def analyze(
+        self,
+        session_id: uuid.UUID,
+        document_type: str,
+        voice_challenge: str,
+        evidence: list[EvidencePayload],
+    ) -> dict[str, Any]: ...
 
 
 class WebhookNotifier(Protocol):

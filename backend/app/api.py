@@ -20,6 +20,7 @@ from app.domain.schemas import (
     CreateSessionResponse,
     HandoffResponse,
     ReviewDecisionRequest,
+    SelectDocumentTypeRequest,
     SessionPublic,
 )
 from app.services.ekyc import EkycService
@@ -35,7 +36,14 @@ def service(db: DbDep, settings: SettingsDep) -> EkycService:
         settings=settings,
         tokens=TokenService(settings.token_secret),
         storage=EncryptedLocalEvidenceStorage(settings.evidence_dir, settings.evidence_key),
-        analyzer=OfflineModelAnalyzer(settings.model_dir, settings.require_models),
+        analyzer=OfflineModelAnalyzer(
+            settings.model_dir,
+            settings.require_models,
+            profile=settings.model_profile,
+            device=settings.ai_device,
+            lipsync_url=settings.lipsync_url,
+            max_video_frames=settings.max_video_frames,
+        ),
     )
 
 
@@ -72,7 +80,14 @@ def session_token(x_session_token: Annotated[str | None, Header()] = None) -> st
 
 @router.get("/utils/health-check")
 def health(settings: SettingsDep) -> dict[str, Any]:
-    analyzer = OfflineModelAnalyzer(settings.model_dir, settings.require_models)
+    analyzer = OfflineModelAnalyzer(
+        settings.model_dir,
+        settings.require_models,
+        profile=settings.model_profile,
+        device=settings.ai_device,
+        lipsync_url=settings.lipsync_url,
+        max_video_frames=settings.max_video_frames,
+    )
     readiness = analyzer.readiness()
     if settings.require_models and not readiness["ready"]:
         raise HTTPException(status_code=503, detail={"status": "not_ready", **readiness})
@@ -130,10 +145,26 @@ def claim_handoff(
     return ClaimResponse(
         session_id=item.id,
         capture_token=capture_token,
-        document_type=item.document_type,
+        document_type=None if item.document_type == "UNSELECTED" else item.document_type,
         stage=item.stage,
         expires_at=item.expires_at,
     )
+
+
+@router.post("/ekyc/capture/document-type")
+def select_document_type(
+    payload: SelectDocumentTypeRequest,
+    core: Annotated[EkycService, Depends(service)],
+    token: Annotated[str, Depends(capture_bearer)],
+) -> dict[str, str]:
+    try:
+        item, _ = core.require_capture_token(token)
+        item = core.select_document_type(item, payload.document_type)
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"document_type": item.document_type}
 
 
 @router.get("/ekyc/sessions/{session_id}", response_model=SessionPublic)

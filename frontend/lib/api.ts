@@ -1,5 +1,8 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v2";
 export const VID_CLIENT_KEY = process.env.NEXT_PUBLIC_VID_CLIENT_KEY ?? "local-vid-client-key";
+export const WEB_CAPTURE_ENABLED =
+  process.env.NEXT_PUBLIC_WEB_CAPTURE_ENABLED === "true" ||
+  (process.env.NEXT_PUBLIC_WEB_CAPTURE_ENABLED === undefined && process.env.NODE_ENV === "development");
 
 export type SessionState = {
   id: string;

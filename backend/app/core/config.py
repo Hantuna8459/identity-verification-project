@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     webhook_allowlist: list[str] = []
     model_dir: Path = Path("../models")
     require_models: bool = False
+    model_profile: str = "technical_demo"
+    ai_device: str = "cpu"
+    lipsync_url: str | None = None
+    max_video_frames: int = 12
 
     @field_validator("cors_origins", "webhook_allowlist", mode="before")
     @classmethod

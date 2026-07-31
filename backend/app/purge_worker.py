@@ -25,7 +25,14 @@ def run_once() -> int:
             settings=settings,
             tokens=TokenService(settings.token_secret),
             storage=EncryptedLocalEvidenceStorage(settings.evidence_dir, settings.evidence_key),
-            analyzer=OfflineModelAnalyzer(settings.model_dir, settings.require_models),
+            analyzer=OfflineModelAnalyzer(
+                settings.model_dir,
+                settings.require_models,
+                profile=settings.model_profile,
+                device=settings.ai_device,
+                lipsync_url=settings.lipsync_url,
+                max_video_frames=settings.max_video_frames,
+            ),
         )
         purged = service.purge_due("purge-worker")
     logger.info("Purge cycle completed: %s session(s)", len(purged))

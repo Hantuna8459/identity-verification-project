@@ -6,12 +6,13 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, HttpUrl
 
-DocumentType = Literal["CCCD_2021", "CAN_CUOC_2024", "PASSPORT_TD3"]
+DocumentType = Literal["CCCD", "CCCD_2021", "CAN_CUOC_2024", "PASSPORT_TD3"]
+CaptureDocumentType = Literal["CCCD", "PASSPORT"]
 
 
 class CreateSessionRequest(BaseModel):
     subject_ref: str = Field(min_length=3, max_length=255)
-    document_type: DocumentType
+    document_type: DocumentType | None = None
     callback_url: HttpUrl | None = None
 
 
@@ -36,9 +37,13 @@ class ClaimRequest(BaseModel):
 class ClaimResponse(BaseModel):
     session_id: uuid.UUID
     capture_token: str
-    document_type: str
+    document_type: str | None
     stage: str
     expires_at: datetime
+
+
+class SelectDocumentTypeRequest(BaseModel):
+    document_type: CaptureDocumentType
 
 
 class ReviewDecisionRequest(BaseModel):

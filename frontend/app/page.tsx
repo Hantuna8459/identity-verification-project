@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import QRCode from "qrcode";
-import { CheckCircle2, Copy, Link2, LoaderCircle, QrCode, RefreshCw, ShieldCheck, Smartphone } from "lucide-react";
+import { CheckCircle2, Copy, ExternalLink, Link2, LoaderCircle, MonitorUp, QrCode, RefreshCw, ShieldCheck, Smartphone } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { StatusPill } from "@/components/status-pill";
-import { api, SessionState, VID_CLIENT_KEY } from "@/lib/api";
+import { api, SessionState, VID_CLIENT_KEY, WEB_CAPTURE_ENABLED } from "@/lib/api";
 
 type CreatedSession = {
   session_id: string;
@@ -25,7 +25,6 @@ type Handoff = {
 
 export default function HomePage() {
   const [subjectRef, setSubjectRef] = useState(() => `vid-${crypto.randomUUID().slice(0, 8)}`);
-  const [documentType, setDocumentType] = useState("CAN_CUOC_2024");
   const [session, setSession] = useState<CreatedSession | null>(null);
   const [handoff, setHandoff] = useState<Handoff | null>(null);
   const [state, setState] = useState<SessionState | null>(null);
@@ -78,7 +77,7 @@ export default function HomePage() {
       const created = await api<CreatedSession>("/ekyc/sessions", {
         method: "POST",
         headers: { "X-V-ID-Client-Key": VID_CLIENT_KEY },
-        body: JSON.stringify({ subject_ref: subjectRef, document_type: documentType }),
+        body: JSON.stringify({ subject_ref: subjectRef }),
       });
       setSession(created);
       const nextHandoff = await api<Handoff>(`/ekyc/sessions/${created.session_id}/handoffs`, {
@@ -132,9 +131,9 @@ export default function HomePage() {
         <div className="heroCopy">
           <span className="eyebrow">XÁC MINH DANH TÍNH V-ID</span>
           <h1>Một bước xác minh.<br /><em>Mở ra mọi kết nối.</em></h1>
-          <p>Tiếp tục trên điện thoại để chụp giấy tờ và xác minh khuôn mặt. Không cần cài ứng dụng.</p>
+          <p>Quét QR để tiếp tục trên điện thoại hoặc dùng camera trực tiếp trên thiết bị hiện tại trong chế độ demo.</p>
           <div className="trustRow">
-            <span><CheckCircle2 size={18} /> Mã QR dùng một lần</span>
+            <span><CheckCircle2 size={18} /> Liên kết dùng một lần</span>
             <span><CheckCircle2 size={18} /> Dữ liệu được mã hóa</span>
           </div>
         </div>
@@ -149,27 +148,20 @@ export default function HomePage() {
               <label className="fieldLabel">Mã tham chiếu V-ID
                 <input value={subjectRef} onChange={(event) => setSubjectRef(event.target.value)} />
               </label>
-              <label className="fieldLabel">Loại giấy tờ
-                <select value={documentType} onChange={(event) => setDocumentType(event.target.value)}>
-                  <option value="CAN_CUOC_2024">Thẻ căn cước 2024</option>
-                  <option value="CCCD_2021">CCCD gắn chip 2021</option>
-                  <option value="PASSPORT_TD3">Hộ chiếu phổ thông</option>
-                </select>
-              </label>
               {error && <div className="errorBox">{error}</div>}
               <button className="primaryButton" disabled={busy || subjectRef.length < 3} onClick={startSession}>
                 {busy ? <LoaderCircle className="spin" size={19} /> : <QrCode size={19} />}
-                Tạo mã QR
+                Tạo phiên eKYC
               </button>
               <p className="finePrint">Bằng cách tiếp tục, bạn xác nhận đang thực hiện quy trình xác minh danh tính.</p>
             </div>
           ) : (
             <div className="qrPanel">
               <div className="cardHeading split">
-                <div><span>Bước tiếp theo</span><h2>Quét mã bằng điện thoại</h2></div>
+                <div><span>Bước tiếp theo</span><h2>Chọn cách tiếp tục</h2></div>
                 <StatusPill value={state?.stage ?? session.stage} />
               </div>
-              <p className="muted">Mở camera điện thoại và hướng vào mã QR bên dưới.</p>
+              <p className="muted">Quét QR bằng điện thoại để mở phiên xác minh.</p>
               <div className="qrFrame">
                 {qrData ? <Image src={qrData} width={256} height={256} unoptimized alt="QR mở phiên xác minh trên điện thoại" /> : <LoaderCircle className="spin" />}
                 <span className="qrLogo">V</span>
@@ -179,6 +171,25 @@ export default function HomePage() {
                 <button className="secondaryButton" disabled={busy} onClick={regenerateQr}><RefreshCw size={17} /> Tạo lại</button>
                 <button className="secondaryButton" onClick={copyLink}>{copied ? <CheckCircle2 size={17} /> : <Copy size={17} />} {copied ? "Đã sao chép" : "Sao chép link"}</button>
               </div>
+              {WEB_CAPTURE_ENABLED && handoff && (
+                <div className="webCaptureOption">
+                  <div className="choiceDivider"><span>hoặc</span></div>
+                  <a
+                    className="webCaptureButton"
+                    href={handoff.capture_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span className="webCaptureIcon"><MonitorUp size={21} /></span>
+                    <span>
+                      <strong>eKYC bằng web</strong>
+                      <small>Mở luồng xác minh trong tab mới</small>
+                    </span>
+                    <ExternalLink size={17} />
+                  </a>
+                  <p className="demoNote">Chế độ technical demo · Dùng cùng liên kết một lần với mã QR.</p>
+                </div>
+              )}
               {state?.stage === "COMPLETED" && (
                 <div className="resultBox"><CheckCircle2 size={22} /><div><strong>Phiên đã hoàn tất</strong><span>Kết quả: {state.decision}</span></div></div>
               )}

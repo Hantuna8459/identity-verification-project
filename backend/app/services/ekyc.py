@@ -10,7 +10,7 @@ from sqlmodel import Session, delete, select
 from app.adapters.security import TokenService
 from app.core.config import Settings
 from app.domain.models import AuditEvent, EkycSession, Evidence, Handoff, ReviewTask
-from app.domain.ports import EkycAnalyzer, EvidenceStorage
+from app.domain.ports import EkycAnalyzer, EvidencePayload, EvidenceStorage
 
 TERMINAL_STAGES = {"COMPLETED", "CANCELLED", "EXPIRED", "PURGED"}
 
@@ -31,13 +31,13 @@ class EkycService:
         self.analyzer = analyzer
 
     def create_session(
-        self, subject_ref: str, document_type: str, callback_url: str | None
+        self, subject_ref: str, document_type: str | None, callback_url: str | None
     ) -> tuple[EkycSession, str]:
         now = datetime.now(UTC).replace(tzinfo=None)
         raw_token = self.tokens.issue()
         item = EkycSession(
             subject_ref=subject_ref,
-            document_type=document_type,
+            document_type=document_type or "UNSELECTED",
             session_token_hash=self.tokens.digest(raw_token),
             callback_url=callback_url,
             expires_at=now + timedelta(minutes=self.settings.session_ttl_minutes),
@@ -101,9 +101,29 @@ class EkycService:
         item.version += 1
         self.db.add(handoff)
         self.db.add(item)
-        self._audit(item.id, "MOBILE", "capture", "handoff.claim")
+        self._audit(item.id, "CAPTURE_CLIENT", "capture", "handoff.claim")
         self.db.commit()
         return item, handoff, capture_token
+
+    def select_document_type(self, item: EkycSession, document_type: str) -> EkycSession:
+        selected = "PASSPORT_TD3" if document_type == "PASSPORT" else "CCCD"
+        evidence = self.db.exec(select(Evidence).where(Evidence.session_id == item.id)).first()
+        if evidence is not None and item.document_type != selected:
+            raise ValueError("Document type cannot be changed after evidence capture")
+        item.document_type = selected
+        item.updated_at = datetime.now(UTC).replace(tzinfo=None)
+        item.version += 1
+        self.db.add(item)
+        self._audit(
+            item.id,
+            "CAPTURE_CLIENT",
+            "capture",
+            "document.type.select",
+            {"document_type": selected},
+        )
+        self.db.commit()
+        self.db.refresh(item)
+        return item
 
     def require_capture_token(self, token: str) -> tuple[EkycSession, Handoff]:
         digest = self.tokens.digest(token)
@@ -124,7 +144,7 @@ class EkycService:
         item.voice_challenge = challenge
         item.updated_at = datetime.now(UTC).replace(tzinfo=None)
         self.db.add(item)
-        self._audit(item.id, "MOBILE", "capture", "voice.challenge.create")
+        self._audit(item.id, "CAPTURE_CLIENT", "capture", "voice.challenge.create")
         self.db.commit()
         return challenge
 
@@ -150,12 +170,16 @@ class EkycService:
             sha256=stored.sha256,
         )
         self.db.add(evidence)
-        self._audit(item.id, "MOBILE", "capture", "evidence.upload", {"type": evidence_type})
+        self._audit(
+            item.id, "CAPTURE_CLIENT", "capture", "evidence.upload", {"type": evidence_type}
+        )
         self.db.commit()
         self.db.refresh(evidence)
         return evidence
 
     def submit(self, item: EkycSession, handoff: Handoff) -> EkycSession:
+        if item.document_type == "UNSELECTED":
+            raise ValueError("Document type has not been selected")
         evidence = self.db.exec(select(Evidence).where(Evidence.session_id == item.id)).all()
         types = {entry.evidence_type for entry in evidence}
         required = {"SELFIE_VIDEO"}
@@ -174,7 +198,17 @@ class EkycService:
         self.db.add(item)
         self.db.commit()
         try:
-            analysis = self.analyzer.analyze(item.id, types)
+            payloads = [
+                EvidencePayload(
+                    evidence_type=entry.evidence_type,
+                    content_type=entry.content_type,
+                    payload=self.storage.get(entry.storage_key),
+                )
+                for entry in evidence
+            ]
+            analysis = self.analyzer.analyze(
+                item.id, item.document_type, item.voice_challenge, payloads
+            )
             item.analysis = analysis
             item.stage = "MANUAL_REVIEW"
             review = ReviewTask(

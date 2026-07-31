@@ -24,6 +24,46 @@ type Detail = {
   evidence: Array<{ id: string; type: string; content_type: string; size_bytes: number; sha256: string }>;
 };
 
+const capabilityLabels: Record<string, string> = {
+  ocr: "OCR giấy tờ",
+  face_match: "Đối chiếu khuôn mặt",
+  liveness: "Liveness thụ động",
+  active_liveness: "Liveness chủ động",
+  visual_deepfake: "Deepfake hình ảnh",
+  voice_challenge: "Voice challenge",
+  lip_sync: "Lip-sync",
+};
+
+function statusLabel(value: unknown): string {
+  if (value === "OK") return "Đạt tín hiệu";
+  if (value === "INCONCLUSIVE") return "Chưa đủ kết luận";
+  if (value === "UNAVAILABLE") return "Model không khả dụng";
+  return String(value ?? "Không có");
+}
+
+function formatMetric(key: string, value: unknown): string {
+  if (typeof value === "number") return key + ": " + value;
+  if (typeof value === "boolean") return key + ": " + (value ? "Có" : "Không");
+  return key + ": " + String(value);
+}
+
+function capabilitySummary(value: unknown): { statuses: string[]; metrics: string[] } {
+  if (!value || typeof value !== "object") return { statuses: [], metrics: [] };
+  const statuses: string[] = [];
+  const metrics: string[] = [];
+  for (const [key, child] of Object.entries(value)) {
+    if (key === "status" && typeof child === "string") statuses.push(child);
+    else if (child && typeof child === "object") {
+      const nested = capabilitySummary(child);
+      statuses.push(...nested.statuses);
+      metrics.push(...nested.metrics);
+    } else if (["engine", "reason", "cosine_similarity", "live_probability", "manipulation_probability", "confidence", "verdict", "sequence_complete", "completed_step_count", "required_step_count", "sampled_frames", "frames_with_face", "challenge_length"].includes(key)) {
+      metrics.push(formatMetric(key, child));
+    }
+  }
+  return { statuses, metrics: [...new Set(metrics)] };
+}
+
 export default function AdminPage() {
   const [token, setToken] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
@@ -173,6 +213,24 @@ export default function AdminPage() {
                 <div><span>Evidence</span><strong>{detail.evidence.length} tệp</strong></div>
               </div>
               <section className="reasonPanel"><span>Lý do chuyển kiểm duyệt</span>{detail.review.reason_codes.map((reason) => <strong key={reason}>{reason.replaceAll("_", " ")}</strong>)}</section>
+              {Boolean(detail.analysis?.capabilities) && (
+                <section className="modelOutput">
+                  <div className="modelOutputHeader"><div><h3>Model output</h3><p>Tín hiệu kỹ thuật để hỗ trợ kiểm duyệt; không phải quyết định tự động.</p></div><span>offline demo</span></div>
+                  <div className="modelOutputGrid">
+                    {Object.entries((detail.analysis?.capabilities ?? {}) as Record<string, unknown>).map(([key, value]) => {
+                      const summary = capabilitySummary(value);
+                      const statuses = [...new Set(summary.statuses)];
+                      const status = statuses.includes("UNAVAILABLE") ? "UNAVAILABLE" : statuses.includes("INCONCLUSIVE") ? "INCONCLUSIVE" : statuses.length ? "OK" : "UNKNOWN";
+                      return (
+                        <article className="modelOutputCard" key={key}>
+                          <div className="modelOutputCardTitle"><strong>{capabilityLabels[key] ?? key}</strong><StatusPill value={status} /><small className="modelStatusText">{statusLabel(status)}</small></div>
+                          {summary.metrics.length > 0 ? <div className="modelMetrics">{summary.metrics.map((metric) => <code key={metric}>{metric}</code>)}</div> : <small>Không có score hoặc metadata an toàn để hiển thị.</small>}
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
               <section className="evidenceList"><h3>Evidence metadata</h3>{detail.evidence.map((item) => <div key={item.id}><FileSearch /><span><strong>{item.type}</strong><small>{item.content_type} · {(item.size_bytes / 1024).toFixed(1)} KB</small></span><code>{item.sha256.slice(0, 10)}…</code></div>)}</section>
               <label className="fieldLabel">Ghi chú bắt buộc<textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Ghi rõ căn cứ cho quyết định…" rows={4} /></label>
               {error && <div className="errorBox">{error}</div>}

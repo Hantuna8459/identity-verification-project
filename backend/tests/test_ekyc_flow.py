@@ -101,3 +101,80 @@ def test_submit_reports_missing_evidence(client: TestClient) -> None:
     response = client.post("/api/v2/ekyc/capture/submit", headers=capture_headers)
     assert response.status_code == 409
     assert "DOCUMENT_BACK" in response.json()["detail"]
+
+
+def create_unselected_claimed_session(client: TestClient) -> dict:
+    created = client.post(
+        "/api/v2/ekyc/sessions",
+        headers=VID_HEADERS,
+        json={"subject_ref": "opaque-user-unselected"},
+    )
+    assert created.status_code == 201, created.text
+    session = created.json()
+    desktop_headers = {"X-Session-Token": session["session_token"]}
+    handoff = client.post(
+        f"/api/v2/ekyc/sessions/{session['session_id']}/handoffs",
+        headers=desktop_headers,
+    )
+    assert handoff.status_code == 200, handoff.text
+    claim = client.post(
+        "/api/v2/ekyc/handoffs/claim",
+        json={"token": handoff.json()["handoff_token"]},
+    )
+    assert claim.status_code == 200, claim.text
+    assert claim.json()["document_type"] is None
+    return {**session, **claim.json(), "desktop_headers": desktop_headers}
+
+
+def test_capture_client_selects_cccd_without_choosing_card_revision(client: TestClient) -> None:
+    flow = create_unselected_claimed_session(client)
+    capture_headers = {"Authorization": f"Bearer {flow['capture_token']}"}
+    selected = client.post(
+        "/api/v2/ekyc/capture/document-type",
+        headers=capture_headers,
+        json={"document_type": "CCCD"},
+    )
+    assert selected.status_code == 200, selected.text
+    assert selected.json()["document_type"] == "CCCD"
+    status = client.get(
+        f"/api/v2/ekyc/sessions/{flow['session_id']}",
+        headers=flow["desktop_headers"],
+    )
+    assert status.status_code == 200
+    assert status.json()["document_type"] == "CCCD"
+
+
+def test_document_type_cannot_change_after_capture_starts(client: TestClient) -> None:
+    flow = create_unselected_claimed_session(client)
+    capture_headers = {"Authorization": f"Bearer {flow['capture_token']}"}
+    selected = client.post(
+        "/api/v2/ekyc/capture/document-type",
+        headers=capture_headers,
+        json={"document_type": "CCCD"},
+    )
+    assert selected.status_code == 200
+    upload(client, flow["capture_token"], "DOCUMENT_FRONT", "image/jpeg")
+    changed = client.post(
+        "/api/v2/ekyc/capture/document-type",
+        headers=capture_headers,
+        json={"document_type": "PASSPORT"},
+    )
+    assert changed.status_code == 409
+
+
+def test_capture_client_selects_passport_and_submits_single_page(client: TestClient) -> None:
+    flow = create_unselected_claimed_session(client)
+    capture_headers = {"Authorization": f"Bearer {flow['capture_token']}"}
+    selected = client.post(
+        "/api/v2/ekyc/capture/document-type",
+        headers=capture_headers,
+        json={"document_type": "PASSPORT"},
+    )
+    assert selected.status_code == 200, selected.text
+    assert selected.json()["document_type"] == "PASSPORT_TD3"
+    client.post("/api/v2/ekyc/capture/voice-challenge", headers=capture_headers)
+    upload(client, flow["capture_token"], "PASSPORT_PAGE", "image/jpeg")
+    upload(client, flow["capture_token"], "SELFIE_VIDEO", "video/webm")
+    submitted = client.post("/api/v2/ekyc/capture/submit", headers=capture_headers)
+    assert submitted.status_code == 200, submitted.text
+    assert submitted.json()["stage"] == "MANUAL_REVIEW"
