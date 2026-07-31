@@ -5,6 +5,21 @@
 Đây là dự án eKYC được tham chiếu từ [dự án eKYC đã làm trước đó](../C2-App-036).
 Dự án tập trung vào eKYC và nâng cấp luồng eKYC của dự án tham chiếu.
 
+## Giai đoạn hiện tại
+
+Mục tiêu gần nhất của dự án là technical demo nội bộ, không phải pilot hoặc
+production.
+
+- Technical demo ưu tiên chứng minh kiến trúc, API contract, orchestration,
+khả năng chạy offline và khả năng thay model.
+- Dữ liệu synthetic hoặc dữ liệu kiểm thử hợp lệ là mặc định.
+- Technical demo không được dùng để tuyên bố production-ready, độ chính xác
+production, tuân thủ pháp lý hoặc khả năng tự động xác minh danh tính.
+- Kết quả AI trong technical demo không được tự động approve/reject; session
+phải đi vào manual review hoặc trả trạng thái model unavailable.
+- Model chưa được phê duyệt không được coi là hợp lệ cho pilot hoặc production
+chỉ vì đã hoạt động trong technical demo.
+
 ## Công nghệ
 
 - Backend framework và phiên bản được kế thừa từ dự án tham chiếu.
@@ -29,9 +44,12 @@ Dự án áp dụng dependency inversion và dependency injection:
 
 Luồng eKYC có thay đổi so với dự án tham chiếu. Xem [Tài liệu triển khai](<../C2-App-036/Report/Project Planning>).
 
-- Người dùng không chụp giấy tờ hoặc thực hiện liveness trên giao diện desktop.
 - Desktop khởi tạo phiên, hiển thị QR và theo dõi trạng thái.
-- Việc capture được thực hiện trên mobile web và bắt buộc đi vào từ QR dùng một lần; không hỗ trợ mở trực tiếp capture URL để tạo một phiên độc lập.
+- Luồng chuẩn thực hiện capture trên mobile web qua QR dùng một lần.
+- Trong technical demo local, desktop được phép hiển thị thêm lựa chọn `eKYC bằng
+  web` để mở cùng capture URL dùng một lần trong tab trình duyệt mới. Lựa chọn này
+  phải nằm sau feature flag, không tạo phiên độc lập, không bỏ qua handoff claim
+  và mặc định tắt ngoài cấu hình demo.
 - Hỗ trợ cả CCCD gắn chip mẫu 2021 và thẻ căn cước mẫu áp dụng từ 01/07/2024.
 - Passport MVP hỗ trợ passport phổ thông theo ICAO TD3.
 - MRZ parser phải trung lập với quốc gia, xử lý hai dòng 44 ký tự và kiểm tra check digit theo ICAO.
@@ -42,7 +60,7 @@ Luồng eKYC có thay đổi so với dự án tham chiếu. Xem [Tài liệu tr
 
 ## Frontend
 
-Không tái sử dụng frontend của dự án tham chiếu. Frontend mới phải được thiết kế cho V-ID với tông nền trắng, logo V-ID đỏ và trải nghiệm nhất quán giữa desktop, mobile capture và admin.
+Không tái sử dụng frontend của dự án tham chiếu.
 
 Agent tự thiết kế các màn hình dựa trên luồng eKYC và nhận diện chung, ưu tiên:
 
@@ -89,7 +107,23 @@ Agent tự thiết kế các màn hình dựa trên luồng eKYC và nhận di�
 
 `./models/` là nơi chứa model và artifact AI dùng chung cho toàn dự án. Phải tạo model manifest để lưu metadata của toàn bộ model.
 
-Các model pretrained được phép sử dụng và là lựa chọn mặc định:
+- Manifest phải ghi tên model, chức năng, nguồn, repository/revision, filename,
+SHA-256, license, required/optional, approval status, usage scope,
+distribution permission và approval reference nếu có.
+
+- Model xuất hiện trong manifest không đồng nghĩa đã được phê duyệt về license,
+pháp lý, bảo mật, chất lượng hoặc production. Không được suy luận quyền sử dụng
+chỉ từ việc model có thể tải công khai, source code có open-source license hoặc
+model đã được dùng trong dự án tham chiếu.
+
+Mỗi model phải có hai trạng thái độc lập:
+
+- `required/optional`: mức độ cần thiết về mặt chức năng đối với build profile.
+- `approval_status`: phạm vi được phép sử dụng, gồm:
+- `quarantined`: chưa rõ provenance/license; không được bật hoặc đóng gói mặc định.
+- `evaluation_only`: chỉ dùng trong technical demo theo phạm vi đã được ghi nhận.
+- `production_approved`: đã có phê duyệt cần thiết và benchmark đạt yêu cầu.
+- `rejected`: không được sử dụng.
 
 - Docker build được phép truy cập Internet để tải model.
 - Chạy local dùng script chung để tải model vào `./models/`.

@@ -508,6 +508,14 @@
       font-weight: 800;
     }
 
+    .risk-reason.reason-safe {
+      color: #11654f;
+      border-left-color: var(--safe);
+      background: var(--safe-soft);
+    }
+
+    .risk-reason.reason-safe strong { color: #0d5945; }
+
     .risk-reason.reason-gray {
       color: #76501a;
       border-left-color: var(--gray);
@@ -743,24 +751,24 @@
         </span>
         <span>Model Governance / eKYC</span>
       </div>
-      <div class="audit-date">Nguồn audit: 23.07.2026 · Trình bày: 24.07.2026</div>
+      <div class="audit-date">Cập nhật theo manifest 1.1 · 31.07.2026</div>
     </div>
 
     <div class="hero">
       <div>
         <div class="eyebrow">License risk matrix</div>
-        <h1>Bản đồ <em>an toàn</em><br>cho hệ sinh thái AI</h1>
+        <h1>Bản đồ <em>rủi ro</em><br>cho hệ sinh thái AI</h1>
         <p class="hero-copy">
-          Phân loại 14 model và weight đang còn trong phạm vi dự án theo khả năng sử
-          dụng thương mại và độ rõ ràng của nguồn gốc — dành cho quyết định triển khai eKYC.
+          Phân loại 9 model entry trong manifest 1.1 theo độ rõ ràng của license,
+          provenance và quyền phân phối. Trạng thái hiện tại chỉ phục vụ technical demo nội bộ.
         </p>
       </div>
       <aside class="verdict">
         <div class="verdict-label">Kết luận cấp danh mục</div>
-        <h2>Chưa đủ điều kiện<br>Go-live thương mại</h2>
+        <h2>Technical demo only<br>0 production-approved</h2>
         <p>
-          Năm nhóm model đang là blocker trực tiếp. Cần thay thế, xin giấy phép
-          hoặc hoàn tất provenance trước khi phát hành.
+          8 model là evaluation-only và 1 model bị quarantined. Build/inference
+          thành công chỉ chứng minh integrity kỹ thuật, không tạo quyền sử dụng thương mại.
         </p>
       </aside>
     </div>
@@ -770,19 +778,19 @@
     <section class="summary" aria-label="Tóm tắt danh mục">
       <div class="metric">
         <div class="metric-label">Tổng danh mục</div>
-        <div class="metric-row"><strong>14</strong><span>model / weight</span></div>
+        <div class="metric-row"><strong>9</strong><span>manifest entries</span></div>
       </div>
       <div class="metric safe">
-        <div class="metric-label">Vùng an toàn</div>
-        <div class="metric-row"><strong id="safeMetric">8</strong><span>có thể tiến tới</span></div>
+        <div class="metric-label">Rủi ro thấp hơn</div>
+        <div class="metric-row"><strong id="safeMetric">2</strong><span>vẫn evaluation-only</span></div>
       </div>
       <div class="metric gray">
         <div class="metric-label">Vùng xám</div>
-        <div class="metric-row"><strong id="grayMetric">1</strong><span>cần xác minh</span></div>
+        <div class="metric-row"><strong id="grayMetric">3</strong><span>cần thêm chứng cứ</span></div>
       </div>
       <div class="metric danger">
         <div class="metric-label">Vùng nguy hiểm</div>
-        <div class="metric-row"><strong id="dangerMetric">5</strong><span>blocker</span></div>
+        <div class="metric-row"><strong id="dangerMetric">4</strong><span>blocker thương mại</span></div>
       </div>
     </section>
 
@@ -812,12 +820,12 @@
       <article class="zone zone-safe" data-zone="safe">
         <header class="zone-header">
           <span class="zone-index">01</span>
-          <h2 class="zone-title"><span class="status-dot"></span>Vùng an toàn</h2>
+          <h2 class="zone-title"><span class="status-dot"></span>Rủi ro thấp hơn</h2>
           <p class="zone-desc">
-            Có cơ sở cho sử dụng thương mại. Vẫn phải giữ notice, pin phiên bản/hash
-            và hoàn thiện hồ sơ nguồn gốc cho từng artifact.
+            License artifact được công bố rõ hơn và checksum đã pin. Đây không phải
+            phê duyệt production; model vẫn chỉ được dùng trong technical demo.
           </p>
-          <span class="zone-count"><span data-count="safe">8</span>&nbsp; mục</span>
+          <span class="zone-count"><span data-count="safe">2</span>&nbsp; mục</span>
         </header>
         <div class="cards" id="safeCards"></div>
       </article>
@@ -830,7 +838,7 @@
             Chưa phải blocker tuyệt đối, nhưng thiếu chứng cứ artifact hoặc xác nhận
             license cụ thể cho weight được tải về.
           </p>
-          <span class="zone-count"><span data-count="gray">1</span>&nbsp; mục</span>
+          <span class="zone-count"><span data-count="gray">3</span>&nbsp; mục</span>
         </header>
         <div class="cards" id="grayCards"></div>
       </article>
@@ -843,7 +851,7 @@
             Không đưa vào bản phát hành thương mại. Cần thay thế, mua license hoặc
             có văn bản cho phép và provenance đầy đủ.
           </p>
-          <span class="zone-count"><span data-count="danger">5</span>&nbsp; mục</span>
+          <span class="zone-count"><span data-count="danger">4</span>&nbsp; mục</span>
         </header>
         <div class="cards" id="dangerCards"></div>
       </article>
@@ -854,8 +862,9 @@
         <div class="eyebrow">Cách đọc ma trận</div>
         <h2>License hợp lệ chưa đồng nghĩa với eKYC hợp lệ.</h2>
         <p class="methodology-intro">
-          Màu sắc thể hiện mức sẵn sàng về license và provenance, không phải đánh
-          giá độ chính xác, thiên lệch hay tuân thủ pháp luật sinh trắc học.
+          Màu sắc chỉ thể hiện mức rủi ro license/provenance tương đối. Trạng thái
+          cho phép sử dụng được quyết định riêng bằng approval_status và usage_scope;
+          không màu nào trong bản này tương đương production approval.
         </p>
       </div>
       <ol class="criteria">
@@ -868,27 +877,27 @@
 
     <section class="priority">
       <div class="section-kicker">Critical path</div>
-      <h2>Bốn hành động cần ưu tiên trước Go-live</h2>
+      <h2>Bốn hành động cần ưu tiên trước pilot / production</h2>
       <ol class="priority-list">
         <li>
           <span class="priority-no">01</span>
-          <strong>Thay hoặc mua license InsightFace</strong>
-          <p>Áp dụng cho cả <code>buffalo_l</code> và <code>glintr100</code>; code MIT không mở quyền thương mại cho pretrained weights.</p>
+          <strong>Giữ commercial release bị khóa</strong>
+          <p>Không phân phối YOLO11, buffalo_l, SyncNet hoặc S3FD trước khi có lộ trình license và provenance được phê duyệt.</p>
         </li>
         <li>
           <span class="priority-no">02</span>
-          <strong>Cách ly custom YOLO11</strong>
-          <p>Xác minh tác giả, dataset, source/config và chọn lộ trình AGPL hoặc Enterprise trước khi dùng.</p>
+          <strong>Giải quyết candidate VietOCR</strong>
+          <p>Xác nhận license riêng của pretrained weight; chỉ sau đó mới benchmark <code>vgg_transformer</code> và candidate seq2seq.</p>
         </li>
         <li>
           <span class="priority-no">03</span>
-          <strong>Tắt SyncNet &amp; ViStreamASR</strong>
-          <p>Không enable hai đường chạy này cho đến khi có license/checkpoint chính xác hoặc model thay thế.</p>
+          <strong>Hoàn thiện evidence package</strong>
+          <p>Lưu license/NOTICE, model card, nguồn dataset và approval reference cho RapidOCR, Vosk, MiniFASNet và deepfake model.</p>
         </li>
         <li>
           <span class="priority-no">04</span>
-          <strong>Thiết lập Model BOM</strong>
-          <p>Pin immutable revision + SHA-256, lưu license/NOTICE, dataset provenance và phê duyệt cho từng artifact.</p>
+          <strong>Tạo production build profile</strong>
+          <p>Chỉ allowlist <code>production_approved</code>; readiness phải fail closed nếu approval, artifact hoặc checksum không hợp lệ.</p>
         </li>
       </ol>
     </section>
@@ -896,9 +905,9 @@
 
   <footer class="shell">
     <p>
-      Tổng hợp từ <strong>MODEL_LICENSE_REPORT.md</strong>, audit ngày 23.07.2026;
-      đã loại các LLM không còn thuộc phạm vi dự án. Phân nhóm này phục vụ quản trị
-      kỹ thuật, không thay thế tư vấn pháp lý.
+      Tổng hợp từ <strong>models/manifest.json</strong>, <strong>AGENTS.md</strong> và
+      <strong>docs/IMPLEMENTATION_STATUS.md</strong>, cập nhật ngày 31.07.2026.
+      Phân nhóm phục vụ quản trị kỹ thuật, không thay thế tư vấn hoặc phê duyệt pháp lý.
     </p>
     <p>Model License Matrix · eKYC Governance</p>
   </footer>
@@ -906,80 +915,67 @@
   <script>
     const models = [
       {
-        zone: "safe", name: "MiniFASNetV2 ONNX", role: "Passive face liveness · mặc định",
-        type: "local", usage: "default", badge: "Local", license: "Apache-2.0",
-        action: "Giữ license/notice; pin revision nguồn và hash của weight."
+        zone: "safe", name: "RapidOCR PP-OCRv6 small", role: "CCCD OCR + passport TD3 MRZ OCR",
+        type: "local", usage: "default", badge: "Evaluation", approval: "evaluation_only · technical_demo",
+        license: "Apache-2.0", modelId: "rapidocr-ppocrv6-small",
+        reason: "Wheel 3.9.2, config và toàn bộ ONNX active đã được pin size/SHA-256; runtime chỉ load local artifact.",
+        action: "Giữ NOTICE/attribution, model card và benchmark trước khi đề xuất production approval."
       },
       {
-        zone: "safe", name: "MiniFASNetV2 INT8", role: "Bản quantized derivative · committed",
-        type: "local", usage: "default", badge: "Local", license: "Apache-2.0 kế thừa",
-        action: "Lưu source hash, lệnh quantize, phiên bản tool và attribution."
+        zone: "safe", name: "Vosk Vietnamese small 0.4", role: "ASR đối chiếu nội dung voice challenge",
+        type: "local", usage: "default", badge: "Evaluation", approval: "evaluation_only · technical_demo",
+        license: "Apache-2.0", modelId: "vosk-small-vn-0.4",
+        reason: "Archive chính thức và 14 artifact phụ thuộc đã được pin size/SHA-256; không tải ở runtime.",
+        action: "Giữ license notice; benchmark tiếng Việt eKYC và không gọi đây là speaker verification."
       },
       {
-        zone: "safe", name: "Deep-Fake-Detector-v2 Q4", role: "Frame-level deepfake score",
-        type: "local", usage: "default", badge: "Local", license: "Apache-2.0",
-        action: "Giữ attribution; kiểm thử domain eKYC vì license không bảo đảm chất lượng."
+        zone: "gray", name: "MiniFASNetV2 ONNX", role: "Passive face liveness",
+        type: "local", usage: "default", badge: "Evaluation", approval: "evaluation_only · technical_demo",
+        license: "Apache-2.0 · upstream review required", modelId: "minifasnet-v2",
+        reason: "Weight đã pin và inference offline hoạt động, nhưng hồ sơ provenance/training dataset và xác nhận license của artifact cần đầy đủ hơn.",
+        action: "Bổ sung model card, dataset provenance, license evidence và benchmark anti-spoof."
       },
       {
-        zone: "safe", name: "RapidOCR PP-OCRv6 small", role: "OCR detection + Vietnamese recognition",
-        type: "local", usage: "default", badge: "Local", license: "Apache-2.0",
-        action: "Pin package, URL model và SHA-256 để tránh artifact thay đổi."
+        zone: "gray", name: "Deep-Fake-Detector-v2 Q4", role: "Visual deepfake probability",
+        type: "local", usage: "default", badge: "Evaluation", approval: "evaluation_only · technical_demo",
+        license: "Apache-2.0 · upstream review required", modelId: "deepfake-detector-v2-q4",
+        reason: "ONNX Q4 đã pin checksum và load offline, nhưng license/provenance của model upstream và độ phù hợp domain eKYC chưa đủ cho production.",
+        action: "Lưu evidence license/model card và benchmark trên attack set phù hợp trước khi nâng approval."
       },
       {
-        zone: "safe", name: "RapidOCR PP-OCRv5 Latin", role: "OCR recognition cấu hình thay thế",
-        type: "local", usage: "optional", badge: "Tuỳ chọn", license: "Apache-2.0",
-        action: "Pin đúng artifact và hash nếu kích hoạt đường chạy này."
+        zone: "gray", name: "VietOCR vgg_transformer", role: "Vietnamese recognizer candidate · không được load",
+        type: "local", usage: "optional", badge: "Quarantined", approval: "quarantined · no usage_scope",
+        license: "Weight license review required", modelId: "vietocr-vgg-transformer",
+        reason: "URL, filename, size và SHA-256 đã được inventory, nhưng quyền sử dụng pretrained weight chưa được xác lập. Downloader và Docker build chủ động bỏ qua entry này.",
+        action: "Có xác nhận license riêng cho weight trước; nếu mở evaluation thì benchmark transformer và seq2seq như hai artifact độc lập."
       },
       {
-        zone: "safe", name: "DBNet / PaddleOCR DB++", role: "Text detector cho VietOCR stack",
-        type: "local", usage: "optional", badge: "Tuỳ chọn", license: "Apache-2.0",
-        action: "Chỉ dùng artifact chính thức; ghi model ID và hash khi enable."
+        zone: "danger", name: "CCCD layout YOLO11", role: "CCCD field/corner detection + OCR crop",
+        type: "local", usage: "default", badge: "Restricted", approval: "evaluation_only · technical_demo",
+        license: "PROJECT_REVIEW_REQUIRED · embedded AGPL marker", modelId: "cccd-layout-yolov11",
+        reason: "Checkpoint có marker AGPL; chưa có hồ sơ đầy đủ về tác giả, training code/config, dataset provenance và quyền đối với weight.",
+        action: "Chỉ demo nội bộ; trước proprietary deployment phải chọn lộ trình AGPL/Enterprise hoặc model thay thế có provenance rõ."
       },
       {
-        zone: "safe", name: "Whisper small / faster-whisper", role: "ASR fallback tại runtime",
-        type: "local", usage: "default", badge: "Local", license: "MIT",
-        action: "Giữ MIT notice; pin revision bản CTranslate2 và hash cache."
+        zone: "danger", name: "InsightFace buffalo_l", role: "SCRFD face detection + ArcFace embedding",
+        type: "local", usage: "default", badge: "Restricted", approval: "evaluation_only · technical_demo",
+        license: "Non-commercial research-only weights", modelId: "insightface-buffalo-l",
+        reason: "Các weight pretrained không kế thừa quyền thương mại từ license của source code. Manifest hiện giới hạn internal evaluation và không cho redistribution.",
+        action: "Không dùng cho pilot/production; mua quyền phù hợp hoặc thay detection/embedding weights."
       },
       {
-        zone: "safe", name: "VinAI PhoWhisper-small", role: "ASR refinement · hybrid speech mặc định",
-        type: "local", usage: "default", badge: "Local", license: "BSD-3-Clause",
-        action: "Pin Hugging Face revision/hash và giữ license + non-endorsement."
+        zone: "danger", name: "SyncNet V2", role: "Audio-video synchronization",
+        type: "local", usage: "default", badge: "Restricted", approval: "evaluation_only · technical_demo",
+        license: "NOASSERTION", modelId: "syncnet-v2",
+        reason: "Checkpoint đã pin checksum và inference service hoạt động, nhưng repository artifact không cung cấp đủ bằng chứng license/provenance để suy ra quyền phân phối.",
+        action: "Giới hạn demo nội bộ; xin phép bằng văn bản hoặc thay checkpoint trước pilot/production."
       },
       {
-        zone: "gray", name: "VietOCR vgg_transformer", role: "OCR recognizer tự tải từ vocr.vn",
-        type: "local", usage: "optional", badge: "Tuỳ chọn", license: "Apache-2.0 (repo)",
-        reason: "Repository/package thường được công bố theo Apache-2.0, nhưng weight .pth tải từ vocr.vn chưa được dự án lưu license riêng, nguồn chính xác, revision hoặc checksum.",
-        action: "Xác minh license riêng của weight; lưu URL, revision và SHA-256."
-      },
-      {
-        zone: "danger", name: "CCCD layout YOLO11", role: "Document corner / field detector · mặc định",
-        type: "local", usage: "default", badge: "Blocker", license: "AGPL-3.0 marker",
-        reason: "Binary có metadata AGPL-3.0. Báo cáo không tìm thấy source model, training code/config, nguồn gốc dataset, tác giả hay tuyên bố license riêng cho weight.",
-        action: "Cách ly khỏi proprietary release; làm rõ provenance và lộ trình license."
-      },
-      {
-        zone: "danger", name: "InsightFace buffalo_l", role: "Face detection + recognition · mặc định",
-        type: "local", usage: "default", badge: "Blocker", license: "Research-only weights",
-        reason: "Pretrained weights của InsightFace được công bố chỉ dành cho nghiên cứu phi thương mại; giấy phép MIT của code không áp dụng cho các weight này.",
-        action: "Mua license thương mại hoặc thay cả detection và recognition weights."
-      },
-      {
-        zone: "danger", name: "InsightFace glintr100", role: "Accuracy profile thay thế",
-        type: "local", usage: "optional", badge: "Blocker", license: "Research-only weights",
-        reason: "Chịu cùng hạn chế phi thương mại như buffalo_l. Báo cáo cũng không tìm thấy file glintr100 cục bộ tại thời điểm audit.",
-        action: "Không dùng thương mại nếu chưa có license riêng; optional vẫn bị hạn chế."
-      },
-      {
-        zone: "danger", name: "ViStreamASR U2", role: "Streaming ASR nếu cài riêng",
-        type: "local", usage: "optional", badge: "Blocker", license: "Chưa xác định",
-        reason: "Không có package version, model ID, weight URL hoặc license chính xác được pin; “U2” chỉ là tên kiến trúc, không xác định một artifact có license cụ thể.",
-        action: "Không enable trước khi pin package, checkpoint, URL và license cụ thể."
-      },
-      {
-        zone: "danger", name: "SyncNet V2 + S3FD", role: "Lip-sync microservice · Docker download",
-        type: "local", usage: "default", badge: "Blocker", license: "Không công bố license",
-        reason: "Hugging Face repository lithiumice/syncnet được tham chiếu không công bố license; provenance của các weight cũng chưa đủ để suy ra quyền sử dụng thương mại.",
-        action: "Tắt service; xin phép thương mại bằng văn bản hoặc thay weight."
+        zone: "danger", name: "S3FD face weight", role: "Face tracking dependency cho lip-sync",
+        type: "local", usage: "default", badge: "Restricted", approval: "evaluation_only · technical_demo",
+        license: "NOASSERTION", modelId: "s3fd-face",
+        reason: "Đây là dependency bắt buộc của service lip-sync và có checksum riêng, nhưng license/provenance của weight chưa được xác lập.",
+        action: "Xử lý như một artifact độc lập; không coi license của code/service là quyền sử dụng weight."
       }
     ];
 
@@ -995,7 +991,7 @@
       const filterMatch = activeFilter === "all"
         || model.type === activeFilter
         || model.usage === activeFilter;
-      const haystack = `${model.name} ${model.role} ${model.license} ${model.action}`.toLocaleLowerCase("vi");
+      const haystack = `${model.modelId} ${model.name} ${model.role} ${model.license} ${model.approval} ${model.action}`.toLocaleLowerCase("vi");
       return filterMatch && haystack.includes(searchTerm);
     }
 
@@ -1010,7 +1006,8 @@
             <span class="type-badge">${model.badge}</span>
           </div>
           <p class="license">${licenseIcon}<span>${model.license}</span></p>
-          ${model.reason ? `<p class="risk-reason reason-${model.zone}"><strong>Lý do xếp ${model.zone === "gray" ? "vùng xám" : "vùng nguy hiểm"}</strong>${model.reason}</p>` : ""}
+          <p class="model-role"><code>${model.modelId}</code> · ${model.approval}</p>
+          ${model.reason ? `<p class="risk-reason reason-${model.zone}"><strong>${model.zone === "safe" ? "Cơ sở xếp rủi ro thấp" : model.zone === "gray" ? "Lý do xếp vùng xám" : "Lý do xếp vùng nguy hiểm"}</strong>${model.reason}</p>` : ""}
           <p class="action"><strong>Điều kiện:</strong> ${model.action}</p>
         </article>`;
     }

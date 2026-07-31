@@ -172,9 +172,10 @@ và từ chối endpoint nhạy cảm nếu một điều kiện bắt buộc ch
 ### 6.2 Bước A — Khởi tạo phiên
 
 1. Client backend gọi tạo phiên với `purpose_code`, `subject_ref` dạng opaque,
-   `requested_document_type`, locale và idempotency key.
-2. Server xác thực workload, tenant, purpose và loại giấy tờ có được phép trong
-   release hiện tại hay không.
+   locale và idempotency key. `requested_document_type` là ràng buộc tùy chọn từ
+   hệ thống tích hợp; UI người dùng có thể chọn nhóm giấy tờ sau khi claim phiên.
+2. Server xác thực workload, tenant, purpose và, nếu có, loại giấy tờ được yêu cầu
+   có nằm trong release hiện tại hay không.
 3. Server tạo `session_id` ngẫu nhiên, `expires_at`, policy version và trạng thái
    `AWAITING_LAWFUL_BASIS`.
 4. Response không chứa PII và không cấp upload token ở bước này.
@@ -201,6 +202,14 @@ Withdrawal không mặc định đồng nghĩa xóa ngay; hệ thống tạo wor
 cessation hoặc deletion theo căn cứ và yêu cầu do Legal/DPO phê duyệt.
 
 ### 6.4 Bước C — Chọn loại và thu thập giấy tờ
+
+UI chỉ hiển thị hai lựa chọn người dùng hiểu được: `CCCD` và `Hộ chiếu`. Lựa chọn
+nằm cùng màn hình chụp giấy tờ. Người dùng không chọn CCCD 2021 hay căn cước
+2024; document pipeline tự nhận diện revision/layout và ghi provenance tương ứng.
+Capture client cập nhật loại giấy tờ qua capture token trước khi gửi evidence.
+Với CCCD, web capture cho phép tải ảnh mặt trước/mặt sau có sẵn hoặc chụp trực
+tiếp bằng camera. Việc cho upload ảnh giấy tờ không mở khả năng upload video;
+biometric challenge vẫn chỉ nhận bản ghi tạo trực tiếp từ camera/microphone.
 
 #### CCCD
 
@@ -289,8 +298,15 @@ Routing tối thiểu:
 1. Khi document evidence đủ điều kiện, server tạo challenge có entropy phù hợp,
    gắn session, hết hạn ngắn và chỉ dùng một lần.
 2. UI hướng dẫn quyền camera/microphone, vị trí khuôn mặt và hành động cần thực hiện.
-3. Video upload đi qua cùng control về token, định dạng, kích thước, malware, mã
-   hóa và audit như giấy tờ.
+3. UI chỉ cho ghi challenge trực tiếp từ `getUserMedia`/`MediaRecorder` trên
+   desktop hoặc mobile; không cung cấp file input để chọn video có sẵn. Chuỗi UX
+   yêu cầu đúng một lần quay mỗi bên và có bước trở về chính diện giữa hai lần
+   quay cũng như trước khi đọc số. Người dùng chủ động xác nhận từng bước; UI
+   không hiển thị countdown. Backend vẫn kiểm tra thứ tự pose từ các frame đã
+   ghi, vì vậy thao tác bấm bỏ qua không làm challenge đạt. Sau bước cuối, client
+   điều hướng ngay sang màn hình xử lý rồi mới chờ upload/inference hoàn tất. Bản
+   ghi do phiên camera tạo ra được gửi qua cùng control về token, định dạng, kích
+   thước, malware, mã hóa và audit như giấy tờ.
 4. Biometric pipeline thực hiện theo capability đã phê duyệt:
    - video/face quality;
    - face detection và alignment;
