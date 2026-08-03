@@ -337,6 +337,7 @@ button:disabled { cursor: not-allowed; opacity: .48; }
 .cameraToolbar .primaryButton, .cameraToolbar .secondaryButton { min-height: 44px; }
 .compactButton { flex: 1; }
 .cameraToolbar .compactButton.primaryButton { width: auto; }
+.automaticStepNotice { flex: 1; min-height: 44px; display: flex; align-items: center; justify-content: center; color: #66676e; font-size: 11px; font-weight: 750; }
 .selfieViewport video { transform: scaleX(-1); }
 .faceGuide { position: absolute; z-index: 2; width: 42%; max-width: 220px; aspect-ratio: .78; border: 2px solid rgba(255,255,255,.9); border-radius: 48%; box-shadow: 0 0 0 999px rgba(0,0,0,.28); }
 .challengeSequence { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: -8px 0 14px; }

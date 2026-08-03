@@ -141,7 +141,7 @@ type ChallengeRecorderProps = {
 type GuidedChallengeStep = {
   label: string;
   detail: string;
-  action: string;
+  durationMs: number;
   showChallenge?: boolean;
 };
 
@@ -149,37 +149,36 @@ const guidedChallengeSteps: GuidedChallengeStep[] = [
   {
     label: "Nhìn thẳng vào camera",
     detail: "Giữ khuôn mặt ở giữa khung trước khi bắt đầu.",
-    action: "Tôi đã sẵn sàng",
+    durationMs: 3_000,
   },
   {
     label: "Quay nhẹ sang trái",
-    detail: "Chỉ cần quay nhẹ một lần, không cần giữ quá lâu.",
-    action: "Đã quay trái",
+    detail: "Quay chậm sang trái rồi giữ khuôn mặt trong khung.",
+    durationMs: 4_000,
   },
   {
     label: "Trở lại nhìn thẳng",
-    detail: "Đưa khuôn mặt về giữa khung rồi mới tiếp tục.",
-    action: "Đã nhìn thẳng",
+    detail: "Đưa khuôn mặt về giữa khung.",
+    durationMs: 2_500,
   },
   {
     label: "Quay nhẹ sang phải",
-    detail: "Chỉ cần quay nhẹ một lần, không cần giữ quá lâu.",
-    action: "Đã quay phải",
+    detail: "Quay chậm sang phải rồi giữ khuôn mặt trong khung.",
+    durationMs: 4_000,
   },
   {
     label: "Trở lại nhìn thẳng",
     detail: "Giữ khuôn mặt ở giữa khung để chuẩn bị đọc số.",
-    action: "Đã trở về giữa",
+    durationMs: 2_500,
   },
   {
     label: "Đọc rõ dãy số",
-    detail: "Đọc tự nhiên từng số, sau đó xác nhận hoàn tất.",
-    action: "Tôi đã đọc xong",
+    detail: "Đọc tự nhiên từng số. Video sẽ tự kết thúc sau khi ghi âm.",
+    durationMs: 7_000,
     showChallenge: true,
   },
 ];
 
-const minimumStepHoldMs = 1100;
 const hiddenCaptureTimeoutMs = 75_000;
 
 export function ChallengeRecorder({ challenge, onRecorded, onError }: ChallengeRecorderProps) {
@@ -192,7 +191,6 @@ export function ChallengeRecorder({ challenge, onRecorded, onError }: ChallengeR
   const captureTimeoutRef = useRef<number | null>(null);
   const [state, setState] = useState<CameraState>("idle");
   const [stepIndex, setStepIndex] = useState(0);
-  const [stepReady, setStepReady] = useState(false);
 
   function clearTimers() {
     if (stepDelayRef.current !== null) window.clearTimeout(stepDelayRef.current);
@@ -201,10 +199,17 @@ export function ChallengeRecorder({ challenge, onRecorded, onError }: ChallengeR
     captureTimeoutRef.current = null;
   }
 
-  function armStepAction() {
+  function scheduleStep(nextStepIndex: number) {
     if (stepDelayRef.current !== null) window.clearTimeout(stepDelayRef.current);
-    setStepReady(false);
-    stepDelayRef.current = window.setTimeout(() => setStepReady(true), minimumStepHoldMs);
+    stepDelayRef.current = window.setTimeout(() => {
+      if (nextStepIndex === guidedChallengeSteps.length - 1) {
+        stopRecording(false);
+        return;
+      }
+      const followingStep = nextStepIndex + 1;
+      setStepIndex(followingStep);
+      scheduleStep(followingStep);
+    }, guidedChallengeSteps[nextStepIndex].durationMs);
   }
 
   useEffect(() => () => {
@@ -298,18 +303,8 @@ export function ChallengeRecorder({ challenge, onRecorded, onError }: ChallengeR
     recorder.start(250);
     setStepIndex(0);
     setState("recording");
-    armStepAction();
+    scheduleStep(0);
     captureTimeoutRef.current = window.setTimeout(expireRecording, hiddenCaptureTimeoutMs);
-  }
-
-  function advanceChallenge() {
-    if (!stepReady) return;
-    if (stepIndex === guidedChallengeSteps.length - 1) {
-      stopRecording(false);
-      return;
-    }
-    setStepIndex((value) => value + 1);
-    armStepAction();
   }
 
   const currentStep = guidedChallengeSteps[stepIndex];
@@ -320,7 +315,7 @@ export function ChallengeRecorder({ challenge, onRecorded, onError }: ChallengeR
         <video ref={videoRef} autoPlay muted playsInline aria-label="Camera challenge khuôn mặt" />
         {(state === "ready" || state === "recording" || state === "recorded") && <div className="faceGuide" aria-hidden="true" />}
         {state === "idle" && (
-          <div className="cameraPlaceholder"><Video size={34} /><strong>Sẵn sàng thực hiện challenge?</strong><span>Bạn chủ động chuyển bước, không có bộ đếm thời gian trên màn hình.</span></div>
+          <div className="cameraPlaceholder"><Video size={34} /><strong>Sẵn sàng thực hiện challenge?</strong><span>Bật camera chỉ để xem trước. Video chưa được ghi cho đến khi bạn bấm bắt đầu.</span></div>
         )}
         {state === "requesting" && <div className="cameraPlaceholder"><LoaderCircle className="spin" /><span>Đang mở camera và microphone…</span></div>}
         {state === "recording" && (
@@ -341,7 +336,7 @@ export function ChallengeRecorder({ challenge, onRecorded, onError }: ChallengeR
         ) : state === "recording" ? (
           <>
             <button type="button" className="secondaryButton compactButton" onClick={() => stopRecording(true)}><Square size={16} /> Hủy lượt này</button>
-            <button type="button" className="primaryButton compactButton" disabled={!stepReady} onClick={advanceChallenge}><Check size={17} /> {currentStep.action}</button>
+            <span className="automaticStepNotice">Tự động chuyển bước</span>
           </>
         ) : (
           <button type="button" className="secondaryButton" onClick={startRecording}><RefreshCw size={16} /> Thực hiện lại</button>

@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     ai_device: str = "cpu"
     lipsync_url: str | None = None
     max_video_frames: int = 36
+    max_face_match_frames: int = 12
     replay_suspicious_threshold: float = 0.62
     camera_injection_suspicious_threshold: float = 0.60
     demo_ocr_rerun_enabled: bool = False

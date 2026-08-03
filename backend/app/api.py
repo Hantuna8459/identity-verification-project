@@ -43,6 +43,7 @@ def service(db: DbDep, settings: SettingsDep) -> EkycService:
             device=settings.ai_device,
             lipsync_url=settings.lipsync_url,
             max_video_frames=settings.max_video_frames,
+            max_face_match_frames=settings.max_face_match_frames,
             replay_suspicious_threshold=settings.replay_suspicious_threshold,
             camera_injection_suspicious_threshold=settings.camera_injection_suspicious_threshold,
         ),
@@ -89,6 +90,7 @@ def health(settings: SettingsDep) -> dict[str, Any]:
         device=settings.ai_device,
         lipsync_url=settings.lipsync_url,
         max_video_frames=settings.max_video_frames,
+        max_face_match_frames=settings.max_face_match_frames,
     )
     readiness = analyzer.readiness()
     if settings.require_models and not readiness["ready"]:

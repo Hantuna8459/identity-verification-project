@@ -24,6 +24,22 @@ from ai_modules.ekyc.runtime import (
 )
 
 
+def select_face_match_candidates(
+    candidates: list[tuple[np.ndarray, dict[str, Any]]], maximum: int
+) -> list[tuple[np.ndarray, dict[str, Any]]]:
+    """Keep the strongest detected faces while bounding embedding inference cost."""
+    return sorted(candidates, key=lambda item: float(item[1]["score"]), reverse=True)[
+        : max(1, maximum)
+    ]
+
+
+def aggregate_face_similarities(similarities: list[float]) -> float:
+    """Use a robust multi-frame score instead of an optimistic best-frame score."""
+    if not similarities:
+        raise InvalidEvidenceError("No selfie face could be embedded")
+    return float(np.median(np.asarray(similarities, dtype=np.float32)))
+
+
 class TechnicalDemoPipeline:
     """Offline capability orchestration; it never makes an identity decision."""
 
@@ -34,6 +50,7 @@ class TechnicalDemoPipeline:
         device: str = "cpu",
         lipsync_url: str | None = None,
         max_video_frames: int = 36,
+        max_face_match_frames: int = 12,
         replay_suspicious_threshold: float = 0.62,
         camera_injection_suspicious_threshold: float = 0.60,
     ) -> None:
@@ -41,6 +58,7 @@ class TechnicalDemoPipeline:
         self._device = device
         self._lipsync_url = lipsync_url
         self._max_video_frames = max(1, max_video_frames)
+        self._max_face_match_frames = max(1, max_face_match_frames)
         self._replay_suspicious_threshold = replay_suspicious_threshold
         self._camera_injection_suspicious_threshold = camera_injection_suspicious_threshold
         self._ocr: LocalOcr | None = None
@@ -169,21 +187,31 @@ class TechnicalDemoPipeline:
                 replay=replay_result,
                 suspicious_threshold=self._camera_injection_suspicious_threshold,
             )
-            live_image, live_face = max(
-                live_candidates,
-                key=lambda item: float(item[1]["score"]),
+            face_match_candidates = select_face_match_candidates(
+                live_candidates, self._max_face_match_frames
             )
+            live_image, live_face = face_match_candidates[0]
             document_embedding = face_engine.embedding(
                 document_image, np.asarray(document_face["landmarks"])
             )
-            live_embedding = face_engine.embedding(live_image, np.asarray(live_face["landmarks"]))
-            similarity = float(np.dot(document_embedding, live_embedding))
+            similarities: list[float] = []
+            for candidate_image, candidate_face in face_match_candidates:
+                try:
+                    live_embedding = face_engine.embedding(
+                        candidate_image, np.asarray(candidate_face["landmarks"])
+                    )
+                except InvalidEvidenceError:
+                    continue
+                similarities.append(float(np.dot(document_embedding, live_embedding)))
+            similarity = aggregate_face_similarities(similarities)
             face_result = {
                 "status": "OK",
                 "engine": "insightface-buffalo_l/SCRFD-10G+ArcFace-R50",
                 "cosine_similarity": round(similarity, 6),
                 "sampled_frames": len(frames),
                 "frames_with_face": len(live_candidates),
+                "matched_frames": len(similarities),
+                "aggregation": "MEDIAN",
             }
             try:
                 score = self._signal_engine().liveness(live_image, np.asarray(live_face["bbox"]))

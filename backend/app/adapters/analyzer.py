@@ -22,6 +22,7 @@ class OfflineModelAnalyzer:
         device: str = "cpu",
         lipsync_url: str | None = None,
         max_video_frames: int = 36,
+        max_face_match_frames: int = 12,
         replay_suspicious_threshold: float = 0.62,
         camera_injection_suspicious_threshold: float = 0.60,
     ) -> None:
@@ -33,6 +34,7 @@ class OfflineModelAnalyzer:
             device=device,
             lipsync_url=lipsync_url,
             max_video_frames=max_video_frames,
+            max_face_match_frames=max_face_match_frames,
             replay_suspicious_threshold=replay_suspicious_threshold,
             camera_injection_suspicious_threshold=camera_injection_suspicious_threshold,
         )
@@ -196,6 +198,8 @@ class OfflineModelAnalyzer:
                 details={
                     "sampled_frames": value.get("sampled_frames"),
                     "frames_with_face": value.get("frames_with_face"),
+                    "matched_frames": value.get("matched_frames"),
+                    "aggregation": value.get("aggregation"),
                 },
                 reason_codes=["FACE_MATCH_THRESHOLD_NOT_APPROVED"],
             )

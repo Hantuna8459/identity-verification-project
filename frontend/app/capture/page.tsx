@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { BookOpen, Check, CreditCard, FileCheck2, LoaderCircle, Upload, LockKeyhole, ScanFace, ShieldCheck } from "lucide-react";
+import { ArrowLeft, BookOpen, Check, CreditCard, FileCheck2, LoaderCircle, Upload, LockKeyhole, ScanFace, ShieldCheck } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { ChallengeRecorder, DocumentCamera } from "@/components/camera-capture";
 import { api } from "@/lib/api";
@@ -146,6 +146,14 @@ function CaptureFlow() {
     }
   }
 
+  function returnToDocuments() {
+    setRecording(null);
+    setChallenge("");
+    setSubmissionState("idle");
+    setError("");
+    setStep(1);
+  }
+
   if (busy && !claim) {
     return <div className="mobileCenter"><LoaderCircle className="spin" size={34} /><p>Đang kết nối phiên an toàn…</p></div>;
   }
@@ -220,9 +228,12 @@ function CaptureFlow() {
 
       {step === 2 && (
         <section className="mobileContent captureContent">
+          <button type="button" className="backButton" onClick={returnToDocuments}>
+            <ArrowLeft size={17} /> Quay lại thay đổi giấy tờ
+          </button>
           <span className="stepLabel">BƯỚC 2 / 2</span>
           <h1>Challenge khuôn mặt</h1>
-          <p className="mobileLead">Làm lần lượt từng hướng dẫn. Chỉ quay nhẹ một lần mỗi bên; dãy số chỉ xuất hiện sau khi bạn đã nhìn thẳng trở lại.</p>
+          <p className="mobileLead">Bật camera để xem trước. Khi bạn bấm bắt đầu, hệ thống sẽ tự chuyển từ turning challenge sang voice challenge trong cùng một video.</p>
 
           <ChallengeRecorder challenge={challenge} onRecorded={setRecording} onError={setError} />
           <div className="privacyLine"><LockKeyhole size={17} /> Không thể chọn video có sẵn; camera được ghi trực tiếp cho phiên này.</div>

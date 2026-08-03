@@ -62,6 +62,8 @@ const metricLabels: Record<string, string> = {
   confidence: "Độ tin cậy",
   sampled_frames: "Frame đã lấy mẫu",
   frames_with_face: "Frame có khuôn mặt",
+  matched_frames: "Frame dùng để đối chiếu",
+  aggregation: "Cách tổng hợp face match",
   challenge_length: "Ký tự yêu cầu",
   recognized_digit_count: "Ký tự nhận diện",
   completed_step_count: "Bước hoàn thành",

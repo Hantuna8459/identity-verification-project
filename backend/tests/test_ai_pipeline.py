@@ -9,6 +9,7 @@ import pytest
 
 from ai_modules.ekyc.anti_spoof import inspect_camera_injection, inspect_replay_attack
 from ai_modules.ekyc.mrz import inspect_td3
+from ai_modules.ekyc.pipeline import aggregate_face_similarities, select_face_match_candidates
 from ai_modules.ekyc.runtime import inspect_head_turn_sequence
 from app.adapters.analyzer import OfflineModelAnalyzer
 
@@ -111,6 +112,23 @@ def test_replay_heuristic_flags_duplicate_frames() -> None:
     assert result["duplicate_pairs"] > 0
 
 
+def test_face_match_selects_multiple_high_confidence_frames_with_a_limit() -> None:
+    candidates = [
+        (np.full((1, 1, 3), index), {"score": score})
+        for index, score in enumerate([0.70, 0.95, 0.80, 0.90])
+    ]
+
+    selected = select_face_match_candidates(candidates, maximum=3)
+
+    assert [candidate[1]["score"] for candidate in selected] == [0.95, 0.90, 0.80]
+
+
+def test_face_match_uses_median_to_resist_one_optimistic_frame() -> None:
+    similarity = aggregate_face_similarities([0.41, 0.43, 0.98, 0.42, 0.44])
+
+    assert similarity == pytest.approx(0.43)
+
+
 def test_replay_heuristic_does_not_flag_moving_frames() -> None:
     frames = []
     for offset in range(8):
@@ -148,6 +166,8 @@ def test_model_output_separates_execution_from_review_signal() -> None:
                 "cosine_similarity": -0.019026,
                 "sampled_frames": 12,
                 "frames_with_face": 1,
+                "matched_frames": 1,
+                "aggregation": "MEDIAN",
             },
             "voice_challenge": {
                 "status": "OK",
@@ -170,6 +190,8 @@ def test_model_output_separates_execution_from_review_signal() -> None:
         "value": None,
         "approval_status": "NOT_APPROVED",
     }
+    assert normalized["face_match"]["details"]["matched_frames"] == 1
+    assert normalized["face_match"]["details"]["aggregation"] == "MEDIAN"
     assert normalized["voice_challenge"]["review_signal"] == "CHALLENGE_MISMATCH"
     assert "VOICE_CHALLENGE_MISMATCH" in normalized["voice_challenge"]["reason_codes"]
     assert normalized["lip_sync"]["review_signal"] == "SUSPICIOUS"

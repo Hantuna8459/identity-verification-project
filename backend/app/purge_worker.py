@@ -32,6 +32,7 @@ def run_once() -> int:
                 device=settings.ai_device,
                 lipsync_url=settings.lipsync_url,
                 max_video_frames=settings.max_video_frames,
+                max_face_match_frames=settings.max_face_match_frames,
             ),
         )
         purged = service.purge_due("purge-worker")
