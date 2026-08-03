@@ -6,6 +6,9 @@ from pathlib import Path
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+DEFAULT_DATA_DIR = BACKEND_DIR / "data"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -19,12 +22,12 @@ class Settings(BaseSettings):
     project_name: str = "V-ID eKYC"
     environment: str = "development"
     api_prefix: str = "/api/v2"
-    database_url: str = "sqlite:///./data/vid_ekyc.db"
+    database_url: str = f"sqlite:///{DEFAULT_DATA_DIR / 'vid_ekyc.db'}"
     frontend_url: str = "http://localhost:3000"
     cors_origins: list[str] = ["http://localhost:3000"]
     token_secret: str = "change-this-token-secret"
     evidence_key: str = "change-this-evidence-key"
-    evidence_dir: Path = Path("./data/evidence")
+    evidence_dir: Path = DEFAULT_DATA_DIR / "evidence"
     vid_client_key: str = "local-vid-client-key"
     reviewer_token: str = "local-reviewer-token"
     session_ttl_minutes: int = 30
