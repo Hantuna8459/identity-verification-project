@@ -1,6 +1,11 @@
 # Trạng thái triển khai
 
-Cập nhật: 2026-07-31.
+Cập nhật: 2026-08-03.
+
+Roadmap thực thi chi tiết nằm tại [`PROJECT_ROADMAP.md`](./PROJECT_ROADMAP.md).
+Tài liệu hiện tại là nguồn theo dõi trạng thái, evidence, blocker và next action.
+Khi tiến độ thay đổi phải cập nhật bảng ở mục **Tiến độ roadmap đang hoạt động**;
+không đánh dấu `DONE` nếu chưa có code, test, docs và evidence kiểm chứng tương ứng.
 
 ## Mục tiêu và phạm vi hiện tại
 
@@ -92,6 +97,10 @@ có approval mới. SyncNet/S3FD và custom CCCD YOLO vẫn còn rủi ro licens
   production.
 - Lỗi capability trả `INCONCLUSIVE`/`UNAVAILABLE` và không được diễn giải là fraud.
 - Heuristic replay/camera dựa trên tối đa 36 frame sample; cần benchmark thêm với replay màn hình, frame freeze và camera injection thực tế.
+- Face matching dùng tối đa 12 frame có detection confidence cao nhất trong số
+  frame đã lấy mẫu và tổng hợp cosine similarity bằng median. Hai giới hạn được
+  cấu hình độc lập qua `MAX_VIDEO_FRAMES` và `MAX_FACE_MATCH_FRAMES`; số lượng và
+  cách tổng hợp được trả trong metadata để phục vụ benchmark technical demo.
 
 ## Contract chưa triển khai hoàn chỉnh
 
@@ -100,25 +109,48 @@ có approval mới. SyncNet/S3FD và custom CCCD YOLO vẫn còn rủi ro licens
 - Chưa có migration framework; bảng được tạo từ SQLModel khi startup. Cần migration trước production.
 - Raw-evidence viewer/decrypt/export không được mở cho admin vì quyền production chưa được quyết định.
 
-## Việc còn lại để đóng gói technical demo
+## Tiến độ roadmap đang hoạt động
 
-1. Bổ sung fixture synthetic/media hợp lệ để chạy full submit qua tất cả engine,
-   thay vì chỉ unit test và smoke inference từng model.
-2. Tạo luồng OCR evaluation độc lập với manual review, dùng fixture có ground truth
-   và báo cáo field exact match, CER/WER, MRZ/check-digit, latency theo document
-   variant và version model/pipeline. Luồng này không thay đổi trạng thái session
-   và không dùng confidence thay cho accuracy.
-3. Tạo luồng liveness evaluation độc lập với manual review, bao phủ bona-fide,
-   replay màn hình, frame freeze, camera injection và các điều kiện capture; báo
-   cáo theo version model/config và chưa đặt threshold production khi chưa được
-   benchmark, review và phê duyệt.
-4. Bổ sung fixture synthetic/media hợp lệ riêng cho CCCD 2021, căn cước 2024 và
-   passport Việt Nam TD3.
-5. Kiểm thử tải đồng thời/resource limit và timeout của pipeline trên máy demo.
-6. Chốt cách trình bày license notice cho các artifact được phép dùng nội bộ.
-7. Sau technical demo, xóa `DEMO_OCR_RERUN_ENABLED` và endpoint `ocr-runs`;
-   thay bằng encrypted structured-result store cùng controlled disclosure đã được
-   phân quyền, audit và phê duyệt cho môi trường mục tiêu.
+Trạng thái hợp lệ: `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED`.
+Thứ tự và tiêu chí hoàn thành đầy đủ của từng milestone nằm trong
+[`PROJECT_ROADMAP.md`](./PROJECT_ROADMAP.md).
+
+| ID | Milestone | Trạng thái | Evidence hiện tại | Blocker/gap chính | Next action |
+|---|---|---|---|---|---|
+| M0 | Contract, governance và baseline config | `IN_PROGRESS` | Roadmap hợp nhất đã được tạo; model manifest và analysis contract 1.2 hiện có | Chưa có ADR capability/fallback/disclosure; chưa chốt điện thoại demo và dataset approval owner | Chốt `demo_device_profile`, capability list, contract kế tiếp và dataset registry schema |
+| M1 | Mobile demo-ready trên thiết bị chỉ định | `IN_PROGRESS` | QR claim, capture CCCD/passport, camera/microphone challenge và submit đã chạy ở web | URL/port đang thiên về localhost/loopback; chưa có local HTTPS, preflight, codec matrix và E2E trên thiết bị chỉ định | Ghi model/OS/browser của điện thoại; dựng same-origin HTTPS; chạy device preflight và ba lượt E2E |
+| M2 | Capability/provider architecture và fallback | `NOT_STARTED` | Có `EkycAnalyzer` port tổng và capability error isolation | Pipeline vẫn khởi tạo trực tiếp model implementation; chưa có provider registry/fallback attempts | Tách capability contracts, composition registry và fake provider tests |
+| M3 | Document quality gate và recapture | `NOT_STARTED` | Flow design đã mô tả blur/glare/corner/occlusion | Chưa có implementation, reason-code contract, fixture hoặc state recapture trong runtime hiện tại | Implement quality contract trước OCR và fixture synthetic rõ/mờ/lóa/mất góc |
+| M4 | Benchmark foundation và dataset intake | `NOT_STARTED` | Implementation status đã xác định metric OCR/liveness cần có; candidate dataset được inventory trong roadmap | Chưa có runner/registry/split/report; license dataset chưa được review | Tạo dataset manifest schema, benchmark CLI skeleton và smoke synthetic subset |
+| M5 | Seed threshold và calibration | `NOT_STARTED` | Replay/camera heuristic có threshold evaluation; seed đề xuất được ghi trong roadmap | Face/liveness/deepfake chưa có calibrated threshold hoặc benchmark reference | Chỉ chạy threshold sweep sau M4; freeze `technical-demo-v1` trên development split và report test split |
+| M6 | Admin/manual review controlled disclosure | `NOT_STARTED` | Có review queue, model telemetry, OCR rerun tạm thời và approve/reject | Chưa có masked structured PII, biometric/evidence grant, quyền tách biệt hoặc output recapture/retry/escalate | Chốt review input/output contract; thiết kế disclosure grant/audit trước khi mở raw evidence |
+| M7 | Integrated demo hardening | `NOT_STARTED` | Docker/model smoke và các unit/integration test nền hiện có | Phụ thuộc M1-M6; chưa có full synthetic E2E, load/resource test và demo runbook hoàn chỉnh | Lập acceptance suite và chỉ bắt đầu gate tích hợp khi milestone phụ thuộc có evidence |
+| X1 | Config và secret hardening xuyên suốt | `IN_PROGRESS` | Backend dùng typed settings và `.env`; model/runtime offline flags đã có | Còn placeholder development, credential trong `NEXT_PUBLIC_*`, threshold/hằng số rải rác và chưa có `SecretProvider` | Loại secret khỏi browser bundle; phân loại config; fail placeholder ngoài development/test |
+| X2 | Dataset license/provenance review | `NOT_STARTED` | Danh sách candidate và yêu cầu manifest đã được ghi | Chưa có approval owner, nơi lưu data hoặc license record | Chỉ định owner; review MIDV/DocXPand/OULU/ASVspoof/deepfake candidates trước download |
+
+### Quy tắc cập nhật bảng
+
+- `IN_PROGRESS` phải có work item và next action cụ thể.
+- `BLOCKED` phải ghi dependency/decision bên ngoài và owner nếu đã biết.
+- `DONE` phải dẫn được tới code/test/report hoặc lệnh kiểm chứng; thiết kế hoặc UI
+  mock riêng lẻ không đủ để đánh dấu hoàn thành.
+- Nếu đổi model, preprocessing, aggregation hoặc device profile, M5 phải quay lại
+  `IN_PROGRESS` cho capability bị ảnh hưởng.
+- Mọi dataset mới phải cập nhật X2 trước khi được dùng trong M4/M5.
+
+### Gate technical demo tiếp theo
+
+Technical demo kế tiếp chỉ được coi là đóng gói xong khi:
+
+1. mobile chạy end-to-end ba lần liên tiếp trên điện thoại được chỉ định qua HTTPS;
+2. ảnh mờ/lóa/thiếu góc yêu cầu chụp lại đúng mặt;
+3. có thể đổi provider bằng config và chứng minh fallback có provenance;
+4. all-provider-failure trả `UNAVAILABLE`, không tự approve/reject;
+5. benchmark chạy độc lập session và threshold có report `evaluation_only`;
+6. reviewer xem dữ liệu mask mặc định; disclosure PII/biometric được phân quyền và audit;
+7. full synthetic/test E2E, resource/timeout test, formatter, linter, type checker,
+   model verification và Docker smoke đều đạt;
+8. session/evidence dùng trong rehearsal và demo được purge.
 
 ## Điều kiện để gọi là MVP feature-complete
 

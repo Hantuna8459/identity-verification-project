@@ -298,13 +298,14 @@ Routing tối thiểu:
 1. Khi document evidence đủ điều kiện, server tạo challenge có entropy phù hợp,
    gắn session, hết hạn ngắn và chỉ dùng một lần.
 2. UI hướng dẫn quyền camera/microphone, vị trí khuôn mặt và hành động cần thực hiện.
+   Camera mở ở chế độ preview; chỉ bắt đầu ghi khi người dùng chủ động bấm bắt đầu.
 3. UI chỉ cho ghi challenge trực tiếp từ `getUserMedia`/`MediaRecorder` trên
-   desktop hoặc mobile; không cung cấp file input để chọn video có sẵn. Chuỗi UX
-   yêu cầu đúng một lần quay mỗi bên và có bước trở về chính diện giữa hai lần
-   quay cũng như trước khi đọc số. Người dùng chủ động xác nhận từng bước; UI
-   không hiển thị countdown. Backend vẫn kiểm tra thứ tự pose từ các frame đã
-   ghi, vì vậy thao tác bấm bỏ qua không làm challenge đạt. Sau bước cuối, client
-   điều hướng ngay sang màn hình xử lý rồi mới chờ upload/inference hoàn tất. Bản
+   desktop hoặc mobile; không cung cấp file input để chọn video có sẵn. Turning
+   challenge và voice/lip-sync challenge tự chuyển phase trong cùng một bản ghi,
+   gồm quay trái, trở về chính diện, quay phải, trở về chính diện rồi đọc dãy số.
+   Người dùng có thể quay lại bước giấy tờ để giữ hoặc thay giấy tờ; lượt video hiện
+   tại bị hủy và toàn bộ biometric challenge phải được thực hiện lại. Sau bước cuối,
+   client điều hướng ngay sang màn hình xử lý rồi mới chờ upload/inference hoàn tất. Bản
    ghi do phiên camera tạo ra được gửi qua cùng control về token, định dạng, kích
    thước, malware, mã hóa và audit như giấy tờ.
 4. Biometric pipeline thực hiện theo capability đã phê duyệt:
@@ -1031,3 +1032,28 @@ Không bật dữ liệu thật khi chưa đạt toàn bộ P0. Không phát hà
 - penetration-test finding chưa xử lý hoặc formally accepted;
 - benchmark CCCD/passport, spoofing và demographic performance chưa đạt threshold;
 - release vẫn dùng LLM làm OCR, extraction, review hoặc nguồn quyết định.
+
+## 24. Ghi chú thực thi sau technical demo
+
+Các quyết định sau buổi demo được áp dụng cho roadmap technical demo tiếp theo:
+
+- model implementation phải nằm sau capability/provider interface; composition root
+  chọn primary/secondary provider theo profile và fallback có timeout/retry budget,
+  provenance cùng fail-safe `UNAVAILABLE`;
+- input document kém chất lượng không kích hoạt model fallback mà đi quality gate và
+  yêu cầu recapture đúng evidence lỗi;
+- mobile web được hoàn thiện và kiểm chứng trước trên một `demo_device_profile` chỉ
+  định; kết quả đó không được diễn giải thành hỗ trợ mọi thiết bị;
+- threshold ban đầu chỉ có trạng thái `evaluation_only`; threshold theo model/profile
+  phải được chọn trên development split và báo cáo trên test split bằng benchmark
+  độc lập session/manual-review workflow;
+- admin/manual review hiển thị PII và biometric theo masked-by-default cùng controlled
+  disclosure, scope tách biệt, grant ngắn hạn và audit từng lần truy cập;
+- secret tiếp tục dùng `.env` qua abstraction trong technical demo cho đến khi có KMS,
+  nhưng không được đưa vào browser bundle, source, log hoặc artifact; policy/config
+  phải version hóa thay vì rải hard-code.
+
+Thứ tự, deliverable, seed threshold, dataset candidate và tiêu chí hoàn thành nằm tại
+[`PROJECT_ROADMAP.md`](./PROJECT_ROADMAP.md). Trạng thái/evidence/next action phải được
+duy trì tại [`IMPLEMENTATION_STATUS.md`](./IMPLEMENTATION_STATUS.md); ghi chú này không
+thay thế các release gate, quyết định pháp lý hoặc yêu cầu production còn mở ở trên.

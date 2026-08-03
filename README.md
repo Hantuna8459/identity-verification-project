@@ -5,7 +5,7 @@ capture giấy tờ bằng camera hoặc upload ảnh CCCD trên web, cùng chal
 lựa chọn web-capture dành cho technical demo,
 backend quản lý state machine và evidence mã hóa, cùng giao diện manual review mới.
 
-**Tài liệu dự án:** xem tại [`docs/`](docs/).
+**Tài liệu dự án:** xem tại [`docs/`](docs/). Roadmap thực thi nằm ở [`docs/PROJECT_ROADMAP.md`](docs/PROJECT_ROADMAP.md) và tiến độ được duy trì tại [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md).
 
 > Trạng thái hiện tại: technical demo nội bộ. Luồng submit đã gọi offline inference cho CCCD layout/OCR, passport TD3 MRZ, face matching, liveness, visual deepfake, voice challenge và lip-sync. Kết quả chỉ là tín hiệu kỹ thuật và luôn đi vào manual review; không model nào được phép auto-approve/auto-reject. Xem `docs/IMPLEMENTATION_STATUS.md`.
 
@@ -127,6 +127,11 @@ Khi mobile submit, backend giải mã evidence trong memory, truyền bytes qua
 `EkycAnalyzer`, rồi xóa file media tạm sau inference. Analysis được lưu chỉ gồm
 status, engine, confidence/score, số lượng vùng OCR và kết quả check digit; không
 lưu raw OCR text, MRZ, transcript, face embedding hoặc evidence đã giải mã.
+
+Face matching lấy tối đa `MAX_VIDEO_FRAMES` frame phân bố đều từ video (mặc định
+36), chọn tối đa `MAX_FACE_MATCH_FRAMES` face có detection confidence cao nhất
+(mặc định 12), rồi dùng median cosine similarity làm score quan sát. Các giá trị
+này phục vụ technical demo và vẫn cần benchmark trước khi chọn cấu hình production.
 
 Nếu evidence không đọc được, model/service thiếu hoặc inference lỗi, capability
 trả `INCONCLUSIVE`/`UNAVAILABLE`; session vẫn vào `MANUAL_REVIEW`. Readiness sẽ
