@@ -4,7 +4,7 @@
 |---|---|
 | Trạng thái | Draft để Architecture, Engineering, Security, Legal/DPO và Product review |
 | Phạm vi | Luồng eKYC nội bộ hỗ trợ CCCD và trang dữ liệu cá nhân hộ chiếu ICAO TD3 |
-| Tài liệu nguồn | [Checklist bảo mật và tuân thủ](./EKYC_SECURITY_COMPLIANCE_CHECKLIST.md), [Kế hoạch migration v2](./EKYC_V2_MIGRATION_PLAN.md) |
+| Tài liệu nguồn | `AGENTS.md`, `PROJECT_ROADMAP.md`, `IMPLEMENTATION_STATUS.md`, `M0_CONTRACT_GOVERNANCE_BASELINE.md` |
 | Đối tượng đọc | Product, Backend, Frontend, AI/ML, QA, DevOps/SRE, Security, Legal/DPO, Risk Officer |
 
 > Tài liệu này là thiết kế kỹ thuật và nghiệp vụ, không phải ý kiến pháp lý.

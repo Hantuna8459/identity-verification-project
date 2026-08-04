@@ -8,9 +8,10 @@ Tài liệu này sắp xếp các nhận xét sau technical demo thành kế ho�
 dependency kỹ thuật. Đây là roadmap cho technical demo nội bộ và nền móng MVP,
 không phải kế hoạch tuyên bố production-ready.
 
-Roadmap không thay thế yêu cầu trong `AGENTS.md` hoặc `EKYC_FLOW_DESIGN.md`.
-Tiến độ tổng hợp phải được cập nhật tại `IMPLEMENTATION_STATUS.md`; tài liệu này
-giữ phạm vi, thứ tự, đầu ra và tiêu chí hoàn thành của từng milestone.
+Roadmap không thay thế yêu cầu trong `AGENTS.md`, `EKYC_FLOW_DESIGN.md` hoặc
+`M0_CONTRACT_GOVERNANCE_BASELINE.md`. Tiến độ tổng hợp phải được cập nhật tại
+`IMPLEMENTATION_STATUS.md`; tài liệu này giữ phạm vi, thứ tự, đầu ra và tiêu chí
+hoàn thành của từng milestone.
 
 Các mục tiêu bắt buộc gồm:
 
@@ -77,13 +78,22 @@ Config/secret hardening là workstream xuyên suốt M0-M7.
 - danh sách capability chuẩn: document quality/layout/OCR, face detection/embedding,
   passive/active liveness, visual deepfake, voice challenge, lip-sync, replay và
   camera injection;
-- analysis contract kế tiếp có provider/model/config/threshold provenance;
-- ADR cho capability provider, fallback, controlled disclosure và threshold lifecycle;
+- `ekyc-analysis/1.0` contract có provider/model/config/threshold provenance;
+- provider/model adapter spec và ADR cho capability provider, fallback, controlled disclosure và threshold lifecycle;
 - schema dataset registry và quy trình approval/license review;
 - inventory các giá trị hard-code và phân loại thành secret, environment config,
   versioned policy hoặc model-specific constant;
 - contract input/output của manual reviewer;
 - `demo_device_profile` ghi model điện thoại, OS, browser, codec, camera và version.
+
+**Quyết định hiện tại cho M0:**
+
+- M0 chỉ cần đủ để M1-M4 bắt đầu; không mở rộng sang implementation runtime.
+- Dataset cụ thể chưa chốt. M0 chỉ tạo registry schema và approval/license process;
+  không download, đóng gói hoặc approval dataset trong milestone này.
+- Người dùng là owner quyết định/phê duyệt tạm thời cho M0 và dataset governance.
+- `demo_device_profile` ban đầu: Tecno Spark 30, Android 14, Chrome. Browser exact
+  version, camera capability, MIME/codec và media limits được đo trong M1 preflight.
 
 **Tiêu chí hoàn thành:** contract được version hóa; không có threshold hoặc quyền
 production bị mặc định; mọi milestone sau tham chiếu cùng contract.
@@ -306,8 +316,7 @@ ngày, evidence, blocker và next action trong `IMPLEMENTATION_STATUS.md`.
 
 ## 7. Quyết định còn cần owner
 
-- model/OS/browser chính xác của điện thoại demo;
-- người phê duyệt dataset license và nơi lưu benchmark data;
+- nơi lưu benchmark data và license record ngoài Git;
 - target false-recapture rate cho document quality technical demo;
 - quyền cụ thể để reviewer unmask PII và xem biometric trong technical demo;
 - thời hạn disclosure grant và retention của benchmark report nhạy cảm;

@@ -1,0 +1,232 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Kế hoạch triển khai tiếp theo</title><style>
+body{font-family:Arial,Helvetica,sans-serif;color:#1f2933;line-height:1.55;max-width:980px;margin:32px auto;padding:0 28px}h1{font-size:30px;margin:0 0 20px;color:#0f172a}h2{font-size:22px;margin-top:32px;padding-bottom:6px;border-bottom:1px solid #d9e2ec;color:#102a43}h3{font-size:18px;margin-top:26px;color:#243b53}p{margin:10px 0}ul,ol{margin:10px 0 14px 24px;padding:0}li{margin:5px 0}code{font-family:Consolas,'Courier New',monospace;background:#f0f4f8;padding:1px 4px;border-radius:3px}pre{background:#f5f7fa;border:1px solid #d9e2ec;border-radius:6px;padding:14px;overflow-x:auto}pre code{background:transparent;padding:0}table{border-collapse:collapse;width:100%;margin:14px 0 20px;font-size:14px}th,td{border:1px solid #bcccdc;padding:8px 10px;vertical-align:top}th{background:#eef2f7;font-weight:700}.meta{color:#52606d;font-size:13px;margin-bottom:24px}
+</style></head><body><div class="meta">Generated from docs/PROJECT_ROADMAP.md for SharePoint upload.</div>
+<h1>Kế hoạch triển khai tiếp theo</h1>
+<p>Cập nhật: 2026-08-03.</p>
+<h2>1. Mục đích và phạm vi</h2>
+<p>Tài liệu này sắp xếp các nhận xét sau technical demo thành kế hoạch thực thi theo dependency kỹ thuật. Đây là roadmap cho technical demo nội bộ và nền móng MVP, không phải kế hoạch tuyên bố production-ready.</p>
+<p>Roadmap không thay thế yêu cầu trong <code>AGENTS.md</code>, <code>EKYC_FLOW_DESIGN.md</code> hoặc <code>M0_CONTRACT_GOVERNANCE_BASELINE.md</code>. Tiến độ tổng hợp phải được cập nhật tại <code>IMPLEMENTATION_STATUS.md</code>; tài liệu này giữ phạm vi, thứ tự, đầu ra và tiêu chí hoàn thành của từng milestone.</p>
+<p>Các mục tiêu bắt buộc gồm:</p>
+<ul>
+<li>pipeline không phụ thuộc một model cụ thể, thay provider qua composition/config;</li>
+<li>fallback có giới hạn, có provenance và không biến lỗi kỹ thuật thành kết luận;</li>
+<li>hoàn thiện mobile web trên một điện thoại được chỉ định cho technical demo;</li>
+<li>phát hiện CCCD mờ, lóa, thiếu góc và yêu cầu chụp lại đúng evidence lỗi;</li>
+<li>benchmark chạy độc lập với session/manual-review workflow;</li>
+<li>có seed threshold để bắt đầu đánh giá và threshold được hiệu chỉnh từ benchmark;</li>
+<li>thiết kế lại admin/manual review với input/output và controlled disclosure rõ ràng;</li>
+<li>giảm hard-code, tách config/policy/secret và dùng <code>.env</code> tạm thời cho secret cho đến khi có KMS/secret manager.</li>
+</ul>
+<h2>2. Nguyên tắc thực thi</h2>
+<ol>
+<li>Kết quả AI của technical demo không tự động approve/reject.</li>
+<li>Fallback chỉ dùng provider được phép trong cùng profile; không fallback sang model <code>quarantined</code>, <code>rejected</code> hoặc ngoài usage scope.</li>
+<li>Input kém chất lượng đi <code>RECAPTURE_DOCUMENT</code>, không kích hoạt model fallback.</li>
+<li>Đổi model, preprocessing, aggregation hoặc device profile làm threshold cũ mất hiệu lực cho đến khi benchmark lại.</li>
+<li>Dataset tải được công khai không mặc nhiên được phép dùng. Dataset phải có provenance, license, checksum, usage scope và approval status riêng.</li>
+<li>Dữ liệu thật không được commit, đưa vào fixture, log, screenshot, Docker image hoặc artifact CI. Dữ liệu benchmark và report nhạy cảm nằm ngoài Git.</li>
+<li>Không đưa mọi literal vào <code>.env</code>: secret, environment config, versioned policy và hằng số gắn với model là bốn loại cấu hình khác nhau.</li>
+</ol>
+<h2>3. Đường găng và workstream song song</h2>
+<pre><code>M0 Contract/governance
+       |
+       +--&gt; M1 Mobile demo foundation
+       |
+       +--&gt; M2 Capability/provider architecture --&gt; M3 Quality + recapture
+                         |                              |
+                         +--&gt; M4 Benchmark foundation -+
+                                        |
+                                        v
+                                M5 Threshold calibration
+                                        |
+                                        v
+                                M6 Manual-review implementation
+                                        |
+                                        v
+                                M7 Integrated demo hardening</code></pre>
+<p>Dataset discovery/license review bắt đầu từ M0 vì có lead time bên ngoài. Thiết kế UX/contract admin cũng bắt đầu từ M0, nhưng implementation phụ thuộc structured quality/model output và controlled-disclosure contract nên được hoàn tất ở M6.</p>
+<p>Config/secret hardening là workstream xuyên suốt M0-M7.</p>
+<h2>4. Milestone thực thi</h2>
+<h3>M0 — Chốt contract, governance và baseline cấu hình</h3>
+<p><strong>Mục tiêu:</strong> tạo nền chung để các workstream không phát triển contract riêng.</p>
+<p><strong>Đầu ra:</strong></p>
+<ul>
+<li>danh sách capability chuẩn: document quality/layout/OCR, face detection/embedding, passive/active liveness, visual deepfake, voice challenge, lip-sync, replay và camera injection;</li>
+<li>analysis contract kế tiếp có provider/model/config/threshold provenance;</li>
+<li>ADR cho capability provider, fallback, controlled disclosure và threshold lifecycle;</li>
+<li>schema dataset registry và quy trình approval/license review;</li>
+<li>inventory các giá trị hard-code và phân loại thành secret, environment config, versioned policy hoặc model-specific constant;</li>
+<li>contract input/output của manual reviewer;</li>
+<li><code>demo_device_profile</code> ghi model điện thoại, OS, browser, codec, camera và version.</li>
+</ul>
+<p><strong>Quyết định hiện tại cho M0:</strong></p>
+<ul>
+<li>M0 chỉ cần đủ để M1-M4 bắt đầu; không mở rộng sang implementation runtime.</li>
+<li>Dataset cụ thể chưa chốt. M0 chỉ tạo registry schema và approval/license process; không download, đóng gói hoặc approval dataset trong milestone này.</li>
+<li>Người dùng là owner quyết định/phê duyệt tạm thời cho M0 và dataset governance.</li>
+<li><code>demo_device_profile</code> ban đầu: Tecno Spark 30, Android 14, Chrome. Browser exact version, camera capability, MIME/codec và media limits được đo trong M1 preflight.</li>
+</ul>
+<p><strong>Tiêu chí hoàn thành:</strong> contract được version hóa; không có threshold hoặc quyền production bị mặc định; mọi milestone sau tham chiếu cùng contract.</p>
+<h3>M1 — Mobile web demo-ready trên thiết bị chỉ định</h3>
+<p><strong>Mục tiêu:</strong> chạy ổn định luồng QR → giấy tờ → challenge → submit trên đúng điện thoại demo, không tuyên bố hỗ trợ mọi thiết bị.</p>
+<p><strong>Đầu ra:</strong></p>
+<ul>
+<li>local HTTPS reverse proxy để điện thoại truy cập frontend/API cùng origin;</li>
+<li>QR dùng host điện thoại resolve được, không dùng <code>localhost</code> của máy chạy Docker;</li>
+<li>preflight cho secure context, camera trước/sau, microphone, MediaRecorder, MIME/codec và permission;</li>
+<li>preview/chụp lại từng mặt, upload progress, retry idempotent và lỗi dễ hiểu;</li>
+<li>kiểm tra video có audio track, không rỗng, decode được và nằm trong giới hạn;</li>
+<li>recovery khi mất mạng, permission bị từ chối, tab background hoặc upload timeout;</li>
+<li>runbook trước/sau demo, gồm readiness, network/certificate và purge session demo;</li>
+<li>E2E checklist khóa theo <code>demo_device_profile</code>.</li>
+</ul>
+<p><strong>Tiêu chí hoàn thành:</strong> ba lần liên tiếp chạy end-to-end thành công trên thiết bị được chỉ định; codec backend decode được; retry không tạo evidence hoặc session trùng; technical failure không bị trình bày là người dùng thất bại xác minh.</p>
+<h3>M2 — Capability/provider architecture và fallback</h3>
+<p><strong>Mục tiêu:</strong> orchestration không khởi tạo trực tiếp model implementation.</p>
+<p><strong>Đầu ra:</strong></p>
+<ul>
+<li>port/contract riêng cho các capability cần thay model độc lập;</li>
+<li>provider registry/factory tại composition root;</li>
+<li>cấu hình <code>capability -&gt; primary/secondary provider</code> theo profile;</li>
+<li>bounded timeout, retry/fallback budget và circuit/open-unavailable behavior;</li>
+<li>output có <code>attempts</code>, provider/model/revision/config version, duration và reason;</li>
+<li>readiness theo capability và provider;</li>
+<li>fake providers cho contract/integration test.</li>
+</ul>
+<p><strong>Fallback chỉ được kích hoạt khi:</strong> provider unavailable, timeout, invalid output hoặc lỗi kỹ thuật allowlist. Không fallback khi score thấp hoặc input quality không đạt.</p>
+<p><strong>Tiêu chí hoàn thành:</strong> thay ít nhất một provider chỉ bằng composition/config; primary lỗi thì secondary hợp lệ chạy; tất cả provider lỗi trả <code>UNAVAILABLE</code> và route manual review/model unavailable, không tự reject.</p>
+<h3>M3 — Document quality gate và recapture</h3>
+<p><strong>Mục tiêu:</strong> kiểm tra chất lượng trước layout/OCR và cho chụp lại đúng mặt lỗi.</p>
+<p><strong>Đầu ra:</strong></p>
+<ul>
+<li>capability <code>document_quality</code> cho blur, glare, corner coverage, document area, brightness, contrast và occlusion;</li>
+<li>reason code ổn định: <code>DOCUMENT_BLUR</code>, <code>DOCUMENT_GLARE</code>, <code>DOCUMENT_CORNER_MISSING</code>, <code>DOCUMENT_TOO_SMALL</code>, <code>DOCUMENT_TOO_DARK</code>, <code>DOCUMENT_TOO_BRIGHT</code>, <code>DOCUMENT_OCCLUDED</code>, <code>QUALITY_CHECK_UNAVAILABLE</code>;</li>
+<li>state/transition <code>RECAPTURE_DOCUMENT</code> hoặc tên tương đương thống nhất với state machine;</li>
+<li>recapture đúng front/back/passport page, revoke token cũ và audit reason;</li>
+<li>attempt limit lấy từ config, không hard-code quyết định production;</li>
+<li>fixture synthetic cho CCCD 2021, căn cước 2024 và passport TD3.</li>
+</ul>
+<p><strong>Tiêu chí hoàn thành:</strong> bộ fixture rõ/mờ/lóa/mất góc/tối/sáng/che khuất route đúng; quality failure không gọi OCR/model fallback; evidence tốt trước đó không bị mất nếu upload thay thế thất bại.</p>
+<h3>M4 — Benchmark foundation và dataset intake</h3>
+<p><strong>Mục tiêu:</strong> đánh giá model/capability độc lập với session và manual review.</p>
+<p><strong>Đầu ra:</strong></p>
+<ul>
+<li>thư mục/CLI benchmark riêng, không thay đổi session state hoặc operational DB;</li>
+<li>dataset registry gồm source/version/checksum/license/sensitivity/usage scope, distribution permission và approval status;</li>
+<li>split theo identity/document/device để tránh leakage giữa development và test;</li>
+<li>metrics chuẩn theo capability;</li>
+<li>report chứa model/provider/config/dataset/device version, sample count, exclusion, latency, resource usage và confidence interval;</li>
+<li>smoke subset synthetic cho CI; full dataset và report nhạy cảm chạy ngoài CI/Git;</li>
+<li>dataset downloader không nằm trong runtime path và không tự tải dataset chưa duyệt.</li>
+</ul>
+<p><strong>Dataset candidate, chưa phải approval:</strong></p>
+<table><thead><tr><th>Capability</th><th>Candidate</th><th>Ghi chú intake</th></tr></thead><tbody>
+<tr><td>Document/layout/OCR</td><td><a href="https://l3i-share.univ-lr.fr/MIDV2020/midv2020.html">MIDV-2020</a></td><td>Mock document; cần chấp nhận license/access</td></tr>
+<tr><td>Document/layout/OCR</td><td><a href="https://github.com/QuickSign/docxpand/releases/tag/v1.0.0">DocXPand-25k</a></td><td>Synthetic; dataset CC BY-NC-SA 4.0</td></tr>
+<tr><td>Mobile document quality</td><td><a href="https://arxiv.org/abs/1807.05786">MIDV-500/MIDV-2019</a>, <a href="https://sites.google.com/site/icdar15smartdoc/home">SmartDoc</a></td><td>Kiểm tra license và quyền phân phối trước khi tải</td></tr>
+<tr><td>CCCD Việt Nam</td><td>Fixture synthetic nội bộ</td><td>Cần bao phủ mẫu 2021 và 2024</td></tr>
+<tr><td>Face matching</td><td><a href="https://microsoft.github.io/DigiFace1M/">DigiFace-1M</a></td><td>Synthetic; không đủ để chốt production threshold</td></tr>
+<tr><td>Mobile liveness/PAD</td><td><a href="https://sites.google.com/site/oulunpudatabase/">OULU-NPU</a></td><td>Cần EULA và quyền truy cập</td></tr>
+<tr><td>Visual deepfake</td><td><a href="https://github.com/ondyari/faceforensics">FaceForensics++</a></td><td>Gated/Terms of Use; chỉ external evaluation phù hợp scope</td></tr>
+<tr><td>Audio spoof</td><td><a href="https://www.asvspoof.org/index2021.html">ASVspoof 2021</a></td><td>Kiểm tra attribution và phạm vi benchmark</td></tr>
+<tr><td>Audio-visual/lip-sync</td><td><a href="https://huggingface.co/datasets/ControlNet/LAV-DF">LAV-DF</a>, <a href="https://github.com/DASH-Lab/FakeAVCeleb">FakeAVCeleb</a></td><td>Non-commercial/gated; cần legal/license review</td></tr>
+</tbody></table>
+<p><strong>Metrics tối thiểu:</strong></p>
+<ul>
+<li>quality: defect recall tại false-recapture rate cố định, corner IoU;</li>
+<li>OCR: field exact match, CER/WER, MRZ exact line và check digit;</li>
+<li>face match: ROC/DET, FMR, FNMR và EER;</li>
+<li>PAD: APCER, BPCER, ACER theo attack/device/condition;</li>
+<li>deepfake/lip-sync: AUROC, AUPRC, EER, TPR tại FPR cố định;</li>
+<li>voice challenge: sequence exact match và digit error rate;</li>
+<li>system: failure rate, p50/p95 latency và peak memory.</li>
+</ul>
+<p><strong>Tiêu chí hoàn thành:</strong> cùng một config/dataset checksum sinh report tái lập được; test split không được dùng để chọn threshold; dataset chưa duyệt bị fail closed.</p>
+<h3>M5 — Seed threshold và calibration</h3>
+<p><strong>Mục tiêu:</strong> có baseline định lượng để điều chỉnh nhưng không tạo quyết định production.</p>
+<p><strong>Seed <code>evaluation_only</code> ban đầu:</strong></p>
+<table><thead><tr><th>Capability</th><th>Không có tín hiệu xấu</th><th>Manual review/inconclusive</th><th>Đáng ngờ</th></tr></thead><tbody>
+<tr><td>Face cosine</td><td><code>&gt;= 0.40</code></td><td><code>0.30 - 0.40</code></td><td><code>&lt; 0.30</code></td></tr>
+<tr><td>Passive liveness <code>p_live</code></td><td><code>&gt;= 0.80</code></td><td><code>0.20 - 0.80</code></td><td><code>&lt;= 0.20</code></td></tr>
+<tr><td>Visual deepfake <code>p_manipulation</code></td><td><code>&lt;= 0.30</code></td><td><code>0.30 - 0.70</code></td><td><code>&gt;= 0.70</code></td></tr>
+<tr><td>Voice challenge</td><td>đủ 6/6, similarity <code>1.0</code></td><td>sai/thiếu hoặc ASR inconclusive</td><td>không dùng để kết luận speaker identity</td></tr>
+<tr><td>Replay</td><td><code>&lt; 0.62</code></td><td>chưa đủ điều kiện xác nhận</td><td><code>&gt;= 0.62</code> và confirmed</td></tr>
+<tr><td>Camera injection</td><td><code>&lt; 0.60</code></td><td>metadata/timing chưa đủ</td><td><code>&gt;= 0.60</code> kèm điều kiện xác nhận</td></tr>
+</tbody></table>
+<p>Các số trên chỉ là điểm bắt đầu cho threshold sweep. Score từ model không mặc nhiên là calibrated probability.</p>
+<p><strong>Operating target để chọn threshold từ development split:</strong></p>
+<ul>
+<li>face match: threshold tại <code>FMR &lt;= 10^-3</code>, báo FNMR; báo thêm tại <code>FMR &lt;= 10^-4</code>;</li>
+<li>PAD: báo APCER/BPCER/ACER; target technical-demo ban đầu <code>APCER &lt;= 5%</code> chỉ dùng để đánh giá nội bộ;</li>
+<li>deepfake/lip-sync: TPR tại FPR 1% và 5%, cùng AUROC/AUPRC/EER;</li>
+<li>quality: chọn threshold tại false-recapture rate được công bố trong report;</li>
+<li>OCR/voice dùng accuracy/error metric, không dùng confidence thay accuracy.</li>
+</ul>
+<p><strong>Lifecycle:</strong> chọn trên development split → freeze model/preprocessing/config/device → chạy test split → tạo benchmark reference → review/approve scope → version threshold.</p>
+<p><strong>Tiêu chí hoàn thành:</strong> <code>technical-demo-v1</code> có report, confidence interval và benchmark reference; UI ghi rõ <code>evaluation_only</code>; session vẫn luôn vào manual review.</p>
+<h3>M6 — Admin/manual review có controlled disclosure</h3>
+<p><strong>Mục tiêu:</strong> reviewer thấy đủ dữ liệu cần thiết nhưng quyền xem PII/biometric được tách biệt, có mục đích, thời hạn và audit.</p>
+<p><strong>Input mặc định cho reviewer:</strong></p>
+<ul>
+<li>session/review metadata, reason code và lịch sử recapture;</li>
+<li>PII/structured fields đã mask, confidence, source side và validation result;</li>
+<li>thumbnail giấy tờ đã mask và document-quality issues;</li>
+<li>ảnh chân dung giấy tờ/selfie representative frame đã kiểm soát;</li>
+<li>face/liveness/deepfake/voice/lip-sync signal;</li>
+<li>provider/model/config/threshold/benchmark provenance;</li>
+<li>model unavailable/fallback attempts được trình bày tách khỏi fraud signal.</li>
+</ul>
+<p><strong>Controlled disclosure:</strong> quyền <code>review:read</code>, <code>pii:unmask</code>, <code>evidence:view</code>, <code>biometric:view</code>, <code>review:decide</code>, <code>evidence:export</code> và <code>evidence:delete</code> tách riêng. Reviewer phải cung cấp reason/purpose; grant ngắn hạn ràng buộc reviewer/session/data category; response <code>no-store</code>; mọi lần cấp/xem/giải mã/playback/từ chối đều audit.</p>
+<p><strong>Output reviewer:</strong> <code>APPROVED</code>, <code>REJECTED</code>, <code>RECAPTURE_REQUESTED</code>, <code>RETRY_ANALYSIS</code>, <code>ESCALATED</code>, kèm reason code allowlist, note và concurrency check.</p>
+<p>Technical demo được phép dùng local auth và <code>.env</code>, nhưng contract phải nằm sau authentication/authorization/secret/decrypt interfaces để thay V-ID auth và KMS.</p>
+<p><strong>Tiêu chí hoàn thành:</strong> masked-by-default; không trả storage path/key hoặc signed URL dài hạn; không có quyền xem raw evidence ngầm từ quyền system admin; mọi disclosure và decision có audit không chứa PII.</p>
+<h3>M7 — Integrated demo hardening và bàn giao</h3>
+<p><strong>Mục tiêu:</strong> chứng minh toàn bộ kiến trúc bằng synthetic/test data và thiết bị demo.</p>
+<p><strong>Đầu ra và tiêu chí hoàn thành:</strong></p>
+<ul>
+<li>mobile chạy end-to-end ba lần liên tiếp trên thiết bị chỉ định;</li>
+<li>quality recapture đúng mặt lỗi;</li>
+<li>đổi provider bằng config và demo primary-failure/secondary-success;</li>
+<li>all-provider-failure trả <code>UNAVAILABLE</code>;</li>
+<li>benchmark report và threshold <code>evaluation_only</code> hiển thị đúng provenance;</li>
+<li>reviewer masked/unmask/disclosure/decision tạo audit đúng;</li>
+<li>test tải/resource/timeout trên máy demo;</li>
+<li>formatter, linter, type checker, test liên quan, model verify và Docker smoke pass;</li>
+<li>purge toàn bộ session/evidence dùng trong rehearsal và demo;</li>
+<li>cập nhật README, flow design và implementation status theo evidence thực tế.</li>
+</ul>
+<h2>5. Config và secret hardening xuyên suốt</h2>
+<table><thead><tr><th>Loại</th><th>Ví dụ</th><th>Nơi quản lý hiện tại/đích</th></tr></thead><tbody>
+<tr><td>Secret</td><td>token signing, evidence key, DB password, reviewer/client credential</td><td><code>.env</code> tạm thời qua <code>SecretProvider</code>; KMS/secret manager về sau</td></tr>
+<tr><td>Environment config</td><td>URL, timeout, retry, resource limit, feature flag, provider profile</td><td>typed settings/environment</td></tr>
+<tr><td>Versioned policy</td><td>fallback chain, quality threshold, recapture limit, review reason</td><td>config có schema/version/change control</td></tr>
+<tr><td>Model constant</td><td>input shape, normalization, anchor/stride, class mapping</td><td>adapter/model config gắn revision</td></tr>
+</tbody></table>
+<p>Ưu tiên sớm:</p>
+<ul>
+<li>không đưa credential bí mật vào biến <code>NEXT_PUBLIC_*</code> hoặc browser bundle;</li>
+<li>startup fail nếu còn placeholder secret ngoài development/test;</li>
+<li>validate range và quan hệ giữa threshold/timeout/provider;</li>
+<li>không dump toàn bộ settings hoặc secret vào log/readiness;</li>
+<li>local <code>.env</code> không được commit; <code>.env.example</code> chỉ chứa placeholder rõ ràng.</li>
+</ul>
+<h2>6. Quy tắc theo dõi tiến độ</h2>
+<p>Trạng thái hợp lệ trong <code>IMPLEMENTATION_STATUS.md</code>:</p>
+<ul>
+<li><code>NOT_STARTED</code>: chưa bắt đầu;</li>
+<li><code>IN_PROGRESS</code>: đã có work item/branch hoặc thay đổi đang thực hiện;</li>
+<li><code>BLOCKED</code>: có dependency/decision bên ngoài cụ thể;</li>
+<li><code>DONE</code>: code, test, docs và evidence hoàn thành;</li>
+<li><code>DEFERRED</code>: chủ động đưa ra ngoài phạm vi technical demo hiện tại.</li>
+</ul>
+<p>Không đánh dấu <code>DONE</code> chỉ vì có thiết kế hoặc UI mock. Mỗi milestone <code>DONE</code> phải có link tới code/test/report hoặc lệnh kiểm chứng. Khi trạng thái thay đổi phải cập nhật ngày, evidence, blocker và next action trong <code>IMPLEMENTATION_STATUS.md</code>.</p>
+<h2>7. Quyết định còn cần owner</h2>
+<ul>
+<li>nơi lưu benchmark data và license record ngoài Git;</li>
+<li>target false-recapture rate cho document quality technical demo;</li>
+<li>quyền cụ thể để reviewer unmask PII và xem biometric trong technical demo;</li>
+<li>thời hạn disclosure grant và retention của benchmark report nhạy cảm;</li>
+<li>production population/risk target dùng để thay operating target evaluation;</li>
+<li>KMS/secret manager, V-ID auth và threshold production vẫn nằm ngoài technical demo.</li>
+</ul>
+</body></html>

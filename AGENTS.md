@@ -171,9 +171,15 @@ Tái sử dụng có chọn lọc backend, role, audit và nghiệp vụ manual 
 
 1. `AGENTS.md` và quyết định mới nhất của người dùng.
 2. `EKYC_FLOW_DESIGN.md`.
-3. `EKYC_SECURITY_COMPLIANCE_CHECKLIST.md`.
-4. `EKYC_V2_MIGRATION_PLAN.md`.
-5. `EKYC_FLOW_DESIGN_SIMPLIFIED.md` chỉ dùng để diễn giải.
+3. `M0_CONTRACT_GOVERNANCE_BASELINE.md`.
+4. `PROJECT_ROADMAP.md`.
+5. `IMPLEMENTATION_STATUS.md`.
+6. `EKYC_FLOW_DESIGN_SIMPLIFIED.md` chỉ dùng để diễn giải.
+
+Các tài liệu chính thức của dự án hiện nằm trong `docs/`. Tài liệu từ dự án
+tham chiếu hoặc từ bản kế hoạch 2.0 cũ chỉ được dùng khi người dùng chỉ định rõ
+trong ngữ cảnh hiện tại; không được tự coi là nguồn ưu tiên hoặc nguồn ràng
+buộc cho dự án này.
 
 Không tự giải quyết mâu thuẫn giữa các tài liệu.
 

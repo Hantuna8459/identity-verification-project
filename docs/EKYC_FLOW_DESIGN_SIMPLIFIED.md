@@ -5,7 +5,7 @@
 | Trạng thái | Bản nháp để Product, Business, Engineering, Security và Legal/DPO cùng review |
 | Phạm vi | Xác minh danh tính bằng CCCD hoặc hộ chiếu và video selfie |
 | Bản kỹ thuật chi tiết | [Tài liệu thiết kế luồng eKYC v2](./EKYC_FLOW_DESIGN.md) |
-| Tài liệu nguồn | [Checklist bảo mật và tuân thủ](./EKYC_SECURITY_COMPLIANCE_CHECKLIST.md), [Kế hoạch migration v2](./EKYC_V2_MIGRATION_PLAN.md) |
+| Tài liệu nguồn | `AGENTS.md`, `PROJECT_ROADMAP.md`, `IMPLEMENTATION_STATUS.md`, `M0_CONTRACT_GOVERNANCE_BASELINE.md` |
 
 > Đây là tài liệu giải thích cách hệ thống dự kiến hoạt động. Những nội dung liên
 > quan đến căn cứ xử lý dữ liệu, thời gian lưu dữ liệu và quyền của người dùng phải
