@@ -213,7 +213,7 @@ class EkycService:
             item.stage = "MANUAL_REVIEW"
             review = ReviewTask(
                 session_id=item.id,
-                reason_codes=analysis.get("reason_codes", ["INCONCLUSIVE"]),
+                reason_codes=analysis.get("summary_reason_codes", ["INCONCLUSIVE"]),
             )
             self.db.add(review)
         except Exception as exc:

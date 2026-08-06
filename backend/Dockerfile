@@ -4,10 +4,16 @@ FROM ghcr.io/astral-sh/uv:0.8.15 AS uv
 FROM python:3.12-slim AS model-fetcher
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 WORKDIR /app
-COPY models/manifest.json /app/models/manifest.json
 COPY scripts/models.py /app/scripts/models.py
 COPY models/cccd_layout_yolov11.pt /tmp/cccd_layout_yolov11.pt
-RUN --mount=type=cache,target=/var/cache/vid-models \
+# The full models/manifest.json (vendor/license/source/purpose) is bind-mounted,
+# not COPYed: a bind mount only exists while this RUN step is executing and is
+# never written to any image layer or build-cache blob. Only the lean output
+# below (--emit-runtime-manifest) ever touches the real image filesystem, so
+# the rich file can never leak out via the image, a pushed layer cache, or
+# anything else - see docs/CAPABILITY_PROVIDER_GUIDE.md.
+RUN --mount=type=bind,source=models/manifest.json,target=/run/manifest.full.json \
+    --mount=type=cache,target=/var/cache/vid-models \
     --mount=type=secret,id=host_ca_bundle \
     if [ -f /run/secrets/host_ca_bundle ]; then \
       export SSL_CERT_FILE=/run/secrets/host_ca_bundle; \
@@ -15,10 +21,13 @@ RUN --mount=type=cache,target=/var/cache/vid-models \
     fi; \
     python /app/scripts/models.py \
          --models-dir /app/models \
-         --manifest /app/models/manifest.json \
+         --manifest /run/manifest.full.json \
          --profile technical_demo \
          --cache-dir /var/cache/vid-models \
-         --artifact cccd-layout-yolov11=/tmp/cccd_layout_yolov11.pt
+         --artifact cccd-layout-yolov11=/tmp/cccd_layout_yolov11.pt \
+    && python /app/scripts/models.py \
+         --manifest /run/manifest.full.json \
+         --emit-runtime-manifest /app/models/manifest.json
 
 FROM python:3.12-slim AS builder
 ENV UV_COMPILE_BYTECODE=1 \
@@ -39,7 +48,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     fi; \
     uv sync --frozen --no-dev --no-install-project
 COPY backend/app ./app
-COPY backend/ai_modules ./ai_modules
+# Only ai_modules/__init__.py + ai_modules/ekyc - the backend imports
+# ai_modules.ekyc.*, never ai_modules.lipsync (that's a separate deployable,
+# see ai_modules/lipsync/Dockerfile); copying the whole ai_modules tree here
+# would ship another service's source for no reason.
+COPY backend/ai_modules/__init__.py ./ai_modules/__init__.py
+COPY backend/ai_modules/ekyc ./ai_modules/ekyc
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=secret,id=host_ca_bundle \
     if [ -f /run/secrets/host_ca_bundle ]; then \
@@ -67,7 +81,8 @@ RUN apt-get update \
     && useradd --system --uid 10001 --create-home vid
 COPY --from=builder /app/backend/.venv ./.venv
 COPY --from=builder /app/backend/app ./app
-COPY --from=builder /app/backend/ai_modules ./ai_modules
+COPY --from=builder /app/backend/ai_modules/__init__.py ./ai_modules/__init__.py
+COPY --from=builder /app/backend/ai_modules/ekyc ./ai_modules/ekyc
 COPY --from=model-fetcher /app/models /app/models
 COPY scripts/models.py /app/scripts/models.py
 RUN python /app/scripts/models.py --models-dir /app/models --manifest /app/models/manifest.json --profile technical_demo --verify-only \

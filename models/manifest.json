@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "default_profile": "technical_demo",
   "models": [
     {
@@ -7,7 +7,7 @@
       "purpose": "CCCD layout, field and corner detection",
       "path": "cccd_layout_yolov11.pt",
       "source": "project-reference-artifact",
-      "source_repository": "../C2-App-036",
+      "source_repository": "Internal artifact from a prior private project of the project owner - not publicly hosted, no external URL.",
       "delivery": "git-tracked-build-context",
       "revision": "V-ID-initial-import",
       "sha256": "343be4b5395fe08798cb96b32e020f029cff7af646b8eda7ebaaca4ace98c6d8",
@@ -19,7 +19,7 @@
         "technical_demo"
       ],
       "distribution_permission": "internal-demo-only",
-      "approval_reference": "AGENTS.md#Giai đoạn hiện tại"
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
     },
     {
       "id": "rapidocr-ppocrv6-small",
@@ -34,7 +34,7 @@
         "technical_demo"
       ],
       "distribution_permission": "allowed-with-license-notice",
-      "approval_reference": "AGENTS.md#Giai đoạn hiện tại",
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval.",
       "archive": {
         "filename": "rapidocr-3.9.2-py3-none-any.whl",
         "format": "zip",
@@ -98,7 +98,7 @@
         "technical_demo"
       ],
       "distribution_permission": "internal-evaluation-only-no-redistribution",
-      "approval_reference": "AGENTS.md#Giai đoạn hiện tại",
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval.",
       "archive": {
         "filename": "insightface-v0.7-buffalo_l.zip",
         "format": "zip",
@@ -155,7 +155,7 @@
         "technical_demo"
       ],
       "distribution_permission": "internal-demo-only",
-      "approval_reference": "AGENTS.md#Giai đoạn hiện tại"
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
     },
     {
       "id": "deepfake-detector-v2-q4",
@@ -173,7 +173,7 @@
         "technical_demo"
       ],
       "distribution_permission": "internal-demo-only",
-      "approval_reference": "AGENTS.md#Giai đoạn hiện tại"
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
     },
     {
       "id": "vosk-small-vn-0.4",
@@ -188,7 +188,7 @@
         "technical_demo"
       ],
       "distribution_permission": "allowed-with-license-notice",
-      "approval_reference": "AGENTS.md#Giai đoạn hiện tại",
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval.",
       "archive": {
         "filename": "vosk-model-small-vn-0.4.zip",
         "format": "zip",
@@ -299,7 +299,7 @@
         "technical_demo"
       ],
       "distribution_permission": "internal-demo-only-no-redistribution",
-      "approval_reference": "AGENTS.md#Giai đoạn hiện tại"
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
     },
     {
       "id": "s3fd-face",
@@ -317,7 +317,113 @@
         "technical_demo"
       ],
       "distribution_permission": "internal-demo-only-no-redistribution",
-      "approval_reference": "AGENTS.md#Giai đoạn hiện tại"
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+    }
+  ],
+  "providers": [
+    {
+      "id": "rapidocr-ppocrv6-small",
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+    },
+    {
+      "id": "cccd-layout-yolov11",
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+    },
+    {
+      "id": "icao-td3-rules",
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+    },
+    {
+      "id": "insightface-buffalo-l-scrfd",
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+    },
+    {
+      "id": "insightface-buffalo-l-arcface",
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+    },
+    {
+      "id": "insightface-buffalo-l-median",
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+    },
+    {
+      "id": "minifasnet-v2",
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+    },
+    {
+      "id": "scrfd-head-pose-rules",
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+    },
+    {
+      "id": "deepfake-detector-v2-q4",
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+    },
+    {
+      "id": "vosk-small-vn-0.4",
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+    },
+    {
+      "id": "syncnet-s3fd-http",
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+    },
+    {
+      "id": "heuristic-replay-v1",
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+    },
+    {
+      "id": "heuristic-camera-injection-v1",
+      "approval_status": "evaluation_only",
+      "usage_scope": [
+        "technical_demo"
+      ],
+      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
     }
   ]
 }

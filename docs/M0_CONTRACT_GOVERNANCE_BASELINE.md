@@ -113,6 +113,9 @@ Rules:
 
 ## 4. Provider/model adapter spec
 
+Hướng dẫn thao tác đổi/thêm provider theo spec này (M2 implementation) nằm tại
+[`CAPABILITY_PROVIDER_GUIDE.md`](./CAPABILITY_PROVIDER_GUIDE.md).
+
 Mỗi provider adapter phải có spec tối thiểu để mô tả cách raw model output được map
 về `ekyc-analysis/1.0`. Spec này là nơi ghi ý nghĩa score của từng model, thay vì để
 use case hoặc reviewer tự suy luận từ tài liệu model.

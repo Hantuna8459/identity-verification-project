@@ -4,10 +4,22 @@ import uuid
 from typing import Annotated, Any
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Response, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+)
 from sqlmodel import Session, select
 
 from app.adapters.analyzer import OfflineModelAnalyzer
+from app.adapters.capability_registry import CapabilityRegistry
+from app.adapters.ekyc_providers import build_capability_registry
 from app.adapters.security import TokenService
 from app.adapters.storage import EncryptedLocalEvidenceStorage
 from app.core.config import Settings, get_settings
@@ -30,18 +42,38 @@ DbDep = Annotated[Session, Depends(get_db)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 
 
-def service(db: DbDep, settings: SettingsDep) -> EkycService:
+def capability_registry(settings: SettingsDep, request: Request) -> CapabilityRegistry:
+    """Build the provider registry once per distinct Settings instance and
+    reuse it across requests - the registry (and the model engines its
+    providers lazily construct) would otherwise be rebuilt on every request,
+    since `app` is a single long-lived FastAPI instance. Keyed by
+    `id(settings)` rather than unconditionally cached so tests that override
+    `get_settings` per-test (a fresh `tmp_path` model dir each time) get an
+    isolated registry instead of a stale one left over from another test.
+    """
+    cached: tuple[int, CapabilityRegistry] | None = getattr(
+        request.app.state, "capability_registry_cache", None
+    )
+    settings_id = id(settings)
+    if cached is None or cached[0] != settings_id:
+        cached = (settings_id, build_capability_registry(settings))
+        request.app.state.capability_registry_cache = cached
+    return cached[1]
+
+
+CapabilityRegistryDep = Annotated[CapabilityRegistry, Depends(capability_registry)]
+
+
+def service(db: DbDep, settings: SettingsDep, registry: CapabilityRegistryDep) -> EkycService:
     return EkycService(
         db=db,
         settings=settings,
         tokens=TokenService(settings.token_secret),
         storage=EncryptedLocalEvidenceStorage(settings.evidence_dir, settings.evidence_key),
         analyzer=OfflineModelAnalyzer(
-            settings.model_dir,
+            registry,
             settings.require_models,
             profile=settings.model_profile,
-            device=settings.ai_device,
-            lipsync_url=settings.lipsync_url,
             max_video_frames=settings.max_video_frames,
             max_face_match_frames=settings.max_face_match_frames,
             replay_suspicious_threshold=settings.replay_suspicious_threshold,
@@ -81,21 +113,36 @@ def session_token(x_session_token: Annotated[str | None, Header()] = None) -> st
     return x_session_token
 
 
-@router.get("/utils/health-check")
-def health(settings: SettingsDep) -> dict[str, Any]:
+def _readiness(settings: Settings, registry: CapabilityRegistry) -> dict[str, Any]:
     analyzer = OfflineModelAnalyzer(
-        settings.model_dir,
+        registry,
         settings.require_models,
         profile=settings.model_profile,
-        device=settings.ai_device,
-        lipsync_url=settings.lipsync_url,
         max_video_frames=settings.max_video_frames,
         max_face_match_frames=settings.max_face_match_frames,
     )
-    readiness = analyzer.readiness()
+    return analyzer.readiness()
+
+
+@router.get("/utils/health-check")
+def health(settings: SettingsDep, registry: CapabilityRegistryDep) -> dict[str, Any]:
+    """Unauthenticated by design (Docker HEALTHCHECK, load balancers, uptime
+    monitors all need this reachable without credentials) - the response must
+    therefore never carry provider/model identity or approval detail. See
+    /admin/readiness for the full breakdown, behind reviewer auth."""
+    readiness = _readiness(settings, registry)
     if settings.require_models and not readiness["ready"]:
-        raise HTTPException(status_code=503, detail={"status": "not_ready", **readiness})
-    return {"status": "ok", "models": readiness}
+        raise HTTPException(status_code=503, detail={"status": "not_ready"})
+    return {"status": "ok"}
+
+
+@router.get("/admin/readiness")
+def admin_readiness(
+    settings: SettingsDep,
+    registry: CapabilityRegistryDep,
+    _: Annotated[str, Depends(require_reviewer)],
+) -> dict[str, Any]:
+    return _readiness(settings, registry)
 
 
 @router.post("/ekyc/sessions", response_model=CreateSessionResponse, status_code=201)

@@ -114,6 +114,46 @@ def _entry_artifacts(entry: dict[str, Any]) -> list[dict[str, Any]]:
     return [entry]
 
 
+RUNTIME_MODEL_FIELDS = {"id", "approval_status", "usage_scope", "required", "revision"}
+RUNTIME_ARTIFACT_FIELDS = {"path", "size_bytes", "sha256"}
+RUNTIME_PROVIDER_FIELDS = {"id", "approval_status", "usage_scope"}
+
+
+def _lean_artifact(artifact: dict[str, Any]) -> dict[str, Any]:
+    return {key: artifact[key] for key in RUNTIME_ARTIFACT_FIELDS if key in artifact}
+
+
+def _lean_model_entry(entry: dict[str, Any]) -> dict[str, Any]:
+    lean = {key: entry[key] for key in RUNTIME_MODEL_FIELDS if key in entry}
+    if "artifacts" in entry:
+        lean["artifacts"] = [_lean_artifact(artifact) for artifact in entry["artifacts"]]
+    else:
+        lean.update(_lean_artifact(entry))
+    return lean
+
+
+def _lean_provider_entry(entry: dict[str, Any]) -> dict[str, Any]:
+    return {key: entry[key] for key in RUNTIME_PROVIDER_FIELDS if key in entry}
+
+
+def emit_runtime_manifest(manifest: dict[str, Any], output_path: Path) -> None:
+    """Strip governance-only fields (source, source_repository, license,
+    purpose, approval_reference, distribution_permission, archive/url/
+    source_path, ...) that the running application never reads. Only what
+    `ManifestReader`/`--verify-only` actually consume ships in the deployed
+    image - see docs/CAPABILITY_PROVIDER_GUIDE.md for why. Note: the
+    capability -> provider_id -> model_id mapping itself still ships via the
+    application source (`ekyc_providers.py`) regardless of this file, so this
+    is a reduction in disclosure, not a complete one.
+    """
+    lean = {
+        "schema_version": manifest.get("schema_version"),
+        "models": [_lean_model_entry(entry) for entry in manifest.get("models", [])],
+        "providers": [_lean_provider_entry(entry) for entry in manifest.get("providers", [])],
+    }
+    output_path.write_text(json.dumps(lean, indent=2) + "\n", encoding="utf-8")
+
+
 def _entry_enabled(entry: dict[str, Any], profile: str) -> bool:
     status = str(entry.get("approval_status", "quarantined"))
     if status not in ALLOWED_APPROVAL_STATUSES:
@@ -243,7 +283,23 @@ def main() -> int:
         metavar="MODEL_ID=PATH",
         help="Provide a local artifact for a single-file model without a download URL",
     )
+    parser.add_argument(
+        "--emit-runtime-manifest",
+        type=Path,
+        default=None,
+        help=(
+            "Write a lean manifest (governance-only fields like source/license/"
+            "purpose/archive URLs stripped) to PATH and exit immediately - used "
+            "so the deployed image only ships what ManifestReader actually reads "
+            "at runtime, not the full provenance record"
+        ),
+    )
     args = parser.parse_args()
+
+    if args.emit_runtime_manifest is not None:
+        manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
+        emit_runtime_manifest(manifest, args.emit_runtime_manifest)
+        return 0
 
     artifact_sources: dict[str, Path] = {}
     for value in args.artifact:

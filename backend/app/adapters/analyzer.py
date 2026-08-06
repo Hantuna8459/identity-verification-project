@@ -1,60 +1,50 @@
 from __future__ import annotations
 
-import hashlib
-import json
 import uuid
-from pathlib import Path
+from datetime import UTC, datetime
 from typing import Any
 
-from ai_modules.ekyc.pipeline import TechnicalDemoPipeline
+from app.adapters.capability_registry import CapabilityRegistry
+from app.adapters.ekyc_orchestrator import EkycOrchestrator
 from app.domain.ports import EvidencePayload
 
 
 class OfflineModelAnalyzer:
-    """Adapter for pinned, profile-approved offline technical-demo models."""
+    """Adapter for pinned, profile-approved offline technical-demo models.
+
+    Concrete provider/model selection lives entirely in `CapabilityRegistry`
+    (composition root, per ADR-M0-001) - this class only owns the
+    `ekyc-analysis/1.0` envelope/normalization contract on top of whatever
+    `EkycOrchestrator` returns.
+    """
 
     def __init__(
         self,
-        model_dir: Path,
+        registry: CapabilityRegistry,
         require_models: bool = False,
         *,
         profile: str = "technical_demo",
-        device: str = "cpu",
-        lipsync_url: str | None = None,
         max_video_frames: int = 36,
         max_face_match_frames: int = 12,
         replay_suspicious_threshold: float = 0.62,
         camera_injection_suspicious_threshold: float = 0.60,
     ) -> None:
-        self._model_dir = model_dir
+        self._registry = registry
         self._require_models = require_models
         self._profile = profile
-        self._pipeline = TechnicalDemoPipeline(
-            model_dir,
-            device=device,
-            lipsync_url=lipsync_url,
+        self._manifest = registry.manifest
+        self._orchestrator = EkycOrchestrator(
+            registry,
             max_video_frames=max_video_frames,
             max_face_match_frames=max_face_match_frames,
             replay_suspicious_threshold=replay_suspicious_threshold,
             camera_injection_suspicious_threshold=camera_injection_suspicious_threshold,
         )
 
-    @staticmethod
-    def _sha256(path: Path) -> str:
-        digest = hashlib.sha256()
-        with path.open("rb") as stream:
-            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-                digest.update(chunk)
-        return digest.hexdigest()
-
-    @staticmethod
-    def _artifacts(entry: dict[str, Any]) -> list[dict[str, Any]]:
-        artifacts = entry.get("artifacts")
-        return artifacts if isinstance(artifacts, list) else [entry]
-
     def readiness(self) -> dict[str, Any]:
-        manifest = self._model_dir / "manifest.json"
-        if not manifest.is_file():
+        summary = self._manifest.summary()
+        capabilities = self._registry.readiness()
+        if not summary.manifest:
             return {
                 "ready": not self._require_models,
                 "artifact_ready": False,
@@ -64,37 +54,13 @@ class OfflineModelAnalyzer:
                 "manifest": False,
                 "models": [],
                 "invalid": ["manifest.json:missing"],
+                "capabilities": capabilities,
             }
-        data = json.loads(manifest.read_text(encoding="utf-8"))
-        invalid: list[str] = []
-        model_ids: list[str] = []
-        statuses: dict[str, str] = {}
-        for entry in data.get("models", []):
-            model_id = str(entry.get("id", "unknown"))
-            status = str(entry.get("approval_status", "quarantined"))
-            scopes = entry.get("usage_scope", [])
-            if status not in {"evaluation_only", "production_approved"}:
-                continue
-            if self._profile not in scopes and "all" not in scopes:
-                continue
-            model_ids.append(model_id)
-            statuses[model_id] = status
-            if not entry.get("required"):
-                continue
-            for artifact in self._artifacts(entry):
-                path = self._model_dir / str(artifact["path"])
-                label = f"{model_id}:{artifact['path']}"
-                if not path.is_file():
-                    invalid.append(f"{label}:missing")
-                elif path.stat().st_size != int(artifact["size_bytes"]):
-                    invalid.append(f"{label}:size")
-                elif self._sha256(path) != artifact["sha256"]:
-                    invalid.append(f"{label}:sha256")
-        artifact_ready = not invalid
+        artifact_ready = summary.artifact_ready
         production_ready = (
-            bool(model_ids)
+            bool(summary.model_ids)
             and artifact_ready
-            and all(value == "production_approved" for value in statuses.values())
+            and all(value == "production_approved" for value in summary.approval_statuses.values())
         )
         return {
             "ready": artifact_ready if self._require_models else True,
@@ -103,17 +69,27 @@ class OfflineModelAnalyzer:
             "production_ready": production_ready,
             "profile": self._profile,
             "manifest": True,
-            "models": model_ids,
-            "approval_statuses": statuses,
-            "invalid": invalid,
+            "models": summary.model_ids,
+            "approval_statuses": summary.approval_statuses,
+            "invalid": summary.invalid,
+            "capabilities": capabilities,
         }
 
     @classmethod
     def _collect_statuses(cls, value: Any) -> list[str]:
+        # `attempts` carries its own per-try status vocabulary (COMPLETED,
+        # TIMEOUT, INVALID_OUTPUT, UNAVAILABLE, FAILED) which is not the same
+        # thing as the capability's own execution_status - e.g. a capability
+        # that failed over from primary to secondary has one UNAVAILABLE/
+        # FAILED attempt and one COMPLETED attempt, but the capability itself
+        # fully succeeded (ADR-M0-002). Recursing into attempts here would
+        # wrongly count that failed attempt against the overall rollup.
         if isinstance(value, dict):
             status = value.get("execution_status", value.get("status"))
             statuses = [str(status)] if status is not None else []
-            for child in value.values():
+            for key, child in value.items():
+                if key == "attempts":
+                    continue
                 statuses.extend(cls._collect_statuses(child))
             return statuses
         if isinstance(value, list):
@@ -132,7 +108,7 @@ class OfflineModelAnalyzer:
     def _normalize_nested_statuses(cls, value: Any) -> Any:
         if isinstance(value, dict):
             normalized = {
-                key: cls._normalize_nested_statuses(child)
+                key: (child if key == "attempts" else cls._normalize_nested_statuses(child))
                 for key, child in value.items()
                 if key != "status"
             }
@@ -171,6 +147,15 @@ class OfflineModelAnalyzer:
             output["error_type"] = value["error_type"]
         if value.get("reason") is not None and not output["reason_codes"]:
             output["reason_codes"] = [str(value["reason"])]
+        attempts = value.get("attempts")
+        if attempts:
+            output["attempts"] = attempts
+            if not output["reason_codes"]:
+                derived = sorted(
+                    {code for attempt in attempts for code in attempt.get("reason_codes", [])}
+                )
+                if derived:
+                    output["reason_codes"] = derived
         return output
 
     @classmethod
@@ -362,23 +347,7 @@ class OfflineModelAnalyzer:
         document_type: str,
         evidence: list[EvidencePayload],
     ) -> dict[str, Any]:
-        readiness = self.readiness()
-        expected_types = (
-            ["PASSPORT_PAGE"]
-            if document_type == "PASSPORT_TD3"
-            else ["DOCUMENT_FRONT", "DOCUMENT_BACK"]
-        )
-        if readiness["artifact_ready"]:
-            results = self._pipeline.analyze_ocr(document_type, evidence)
-        else:
-            results = {
-                evidence_type.lower(): {
-                    "status": "UNAVAILABLE",
-                    "reason": "REQUIRED_MODEL_ARTIFACT_INVALID",
-                }
-                for evidence_type in expected_types
-            }
-
+        results = self._orchestrator.analyze_ocr(document_type, evidence)
         documents: dict[str, Any] = {}
         for evidence_type, result in results.items():
             document: dict[str, Any] = {
@@ -409,33 +378,14 @@ class OfflineModelAnalyzer:
         evidence: list[EvidencePayload],
     ) -> dict[str, Any]:
         readiness = self.readiness()
-        if readiness["artifact_ready"]:
-            capabilities = self._pipeline.analyze(document_type, voice_challenge, evidence)
-        else:
-            capabilities = {
-                name: {
-                    "status": "UNAVAILABLE",
-                    "reason": "REQUIRED_MODEL_ARTIFACT_INVALID",
-                }
-                for name in (
-                    "ocr",
-                    "face_match",
-                    "liveness",
-                    "active_liveness",
-                    "replay_attack",
-                    "camera_injection",
-                    "visual_deepfake",
-                    "voice_challenge",
-                    "lip_sync",
-                )
-            }
+        capabilities = self._orchestrator.analyze(document_type, voice_challenge, evidence)
         capabilities = self.normalize_capabilities(capabilities)
         statuses = self._collect_statuses(capabilities)
-        reason_codes = ["TECHNICAL_DEMO_MANUAL_REVIEW"]
+        summary_reason_codes = ["TECHNICAL_DEMO_MANUAL_REVIEW"]
         if not readiness["artifact_ready"] or "UNAVAILABLE" in statuses:
-            reason_codes.append("MODEL_UNAVAILABLE")
+            summary_reason_codes.append("MODEL_UNAVAILABLE")
         if "INCONCLUSIVE" in statuses:
-            reason_codes.append("AI_RESULT_INCONCLUSIVE")
+            summary_reason_codes.append("AI_RESULT_INCONCLUSIVE")
         for capability, reason in (
             ("replay_attack", "REPLAY_ATTACK_SUSPECTED"),
             ("camera_injection", "CAMERA_INJECTION_SUSPECTED"),
@@ -443,27 +393,43 @@ class OfflineModelAnalyzer:
         ):
             signal = capabilities.get(capability, {})
             if isinstance(signal, dict) and signal.get("review_signal") == "SUSPICIOUS":
-                reason_codes.append(reason)
-        voice_challenge = capabilities.get("voice_challenge", {})
+                summary_reason_codes.append(reason)
+        voice_challenge_signal = capabilities.get("voice_challenge", {})
         if (
-            isinstance(voice_challenge, dict)
-            and voice_challenge.get("review_signal") == "CHALLENGE_MISMATCH"
+            isinstance(voice_challenge_signal, dict)
+            and voice_challenge_signal.get("review_signal") == "CHALLENGE_MISMATCH"
         ):
-            reason_codes.append("VOICE_CHALLENGE_MISMATCH")
+            summary_reason_codes.append("VOICE_CHALLENGE_MISMATCH")
         active_liveness = capabilities.get("active_liveness", {})
         if (
             isinstance(active_liveness, dict)
             and active_liveness.get("review_signal") == "CHALLENGE_INCOMPLETE"
         ):
-            reason_codes.append("ACTIVE_LIVENESS_SEQUENCE_INCOMPLETE")
+            summary_reason_codes.append("ACTIVE_LIVENESS_SEQUENCE_INCOMPLETE")
+
+        if not readiness["artifact_ready"] or "UNAVAILABLE" in statuses:
+            if "COMPLETED" in statuses:
+                top_execution_status = "PARTIAL"
+            else:
+                top_execution_status = "UNAVAILABLE"
+        else:
+            top_execution_status = "COMPLETED"
+        top_review_signal = (
+            "MODEL_UNAVAILABLE"
+            if top_execution_status == "UNAVAILABLE"
+            else "MANUAL_REVIEW_REQUIRED"
+        )
+
         return {
-            "schema_version": "model-analysis/1.2",
+            "contract_version": "ekyc-analysis/1.0",
             "session_id": str(session_id),
             "pipeline": "offline-technical-demo",
             "profile": self._profile,
+            "execution_status": top_execution_status,
+            "review_signal": top_review_signal,
             "model_readiness": readiness,
             "evidence_types": sorted(item.evidence_type for item in evidence),
             "capabilities": capabilities,
-            "decision_candidate": "MANUAL_REVIEW",
-            "reason_codes": reason_codes,
+            "summary_reason_codes": summary_reason_codes,
+            "created_at": datetime.now(UTC).isoformat(),
         }

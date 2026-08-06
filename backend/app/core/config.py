@@ -48,6 +48,28 @@ class Settings(BaseSettings):
     replay_suspicious_threshold: float = 0.62
     camera_injection_suspicious_threshold: float = 0.60
     demo_ocr_rerun_enabled: bool = False
+    capability_provider_timeout_seconds: float = 30.0
+    capability_circuit_failure_threshold: int = 3
+    capability_circuit_cooldown_seconds: float = 60.0
+
+    # Capability -> "primary[,secondary]" provider id. Environment config, not
+    # a business decision to hard-code: which vendor/model is live in a given
+    # deployment is operational information and should not sit fixed in git
+    # history. These defaults are the technical-demo baseline only; a
+    # pilot/production deployment overrides them via its own `.env`.
+    provider_document_ocr: str = "rapidocr-ppocrv6-small"
+    provider_document_layout: str = "cccd-layout-yolov11"
+    provider_passport_mrz: str = "icao-td3-rules"
+    provider_face_detection: str = "insightface-buffalo-l-scrfd"
+    provider_face_embedding: str = "insightface-buffalo-l-arcface"
+    provider_face_matching: str = "insightface-buffalo-l-median"
+    provider_passive_liveness: str = "minifasnet-v2"
+    provider_active_liveness: str = "scrfd-head-pose-rules"
+    provider_visual_deepfake: str = "deepfake-detector-v2-q4"
+    provider_voice_challenge: str = "vosk-small-vn-0.4"
+    provider_lip_sync: str = "syncnet-s3fd-http"
+    provider_replay_attack: str = "heuristic-replay-v1"
+    provider_camera_injection: str = "heuristic-camera-injection-v1"
 
     @field_validator("cors_origins", "webhook_allowlist", mode="before")
     @classmethod

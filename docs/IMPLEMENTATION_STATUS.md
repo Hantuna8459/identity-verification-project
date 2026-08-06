@@ -1,11 +1,13 @@
 # Trạng thái triển khai
 
-Cập nhật: 2026-08-03.
+Cập nhật: 2026-08-06.
 
 Roadmap thực thi chi tiết nằm tại [`PROJECT_ROADMAP.md`](./PROJECT_ROADMAP.md).
 Tài liệu hiện tại là nguồn theo dõi trạng thái, evidence, blocker và next action.
 Khi tiến độ thay đổi phải cập nhật bảng ở mục **Tiến độ roadmap đang hoạt động**;
 không đánh dấu `DONE` nếu chưa có code, test, docs và evidence kiểm chứng tương ứng.
+Hướng dẫn thao tác đổi/thêm provider cho một capability (M2) nằm tại
+[`CAPABILITY_PROVIDER_GUIDE.md`](./CAPABILITY_PROVIDER_GUIDE.md).
 
 ## Mục tiêu và phạm vi hiện tại
 
@@ -50,12 +52,22 @@ offline và khả năng thay model qua adapter/configuration.
 - Voice challenge dùng Vosk Vietnamese small 0.4 local; transcript chỉ tồn tại
   trong memory và không được lưu vào analysis.
 - SyncNetV2/S3FD lip-sync service được gọi từ pipeline khi `LIPSYNC_URL` cấu hình.
-- Analysis dùng contract `model-analysis/1.2`: `execution_status` chỉ phản ánh model
-  có chạy được hay không; `review_signal` phản ánh tín hiệu cho reviewer; score,
-  hướng diễn giải và trạng thái phê duyệt threshold được tách riêng. Face match,
-  liveness và visual deepfake không bị gán pass/fail khi threshold production chưa
-  được phê duyệt; voice challenge, active liveness, lip-sync và anti-injection có
-  reason code rõ ràng khi mismatch, thiếu bước hoặc đáng ngờ.
+- Analysis dùng contract `ekyc-analysis/1.0` (M2, kế thừa `model-analysis/1.2`):
+  `execution_status` chỉ phản ánh model có chạy được hay không; `review_signal`
+  phản ánh tín hiệu cho reviewer; score, hướng diễn giải và trạng thái phê duyệt
+  threshold được tách riêng. Mỗi capability có `attempts` với provider/model/config
+  provenance do `CapabilityRegistry` sinh ra. Face match, liveness và visual deepfake
+  không bị gán pass/fail khi threshold production chưa được phê duyệt; voice
+  challenge, active liveness, lip-sync và anti-injection có reason code rõ ràng khi
+  mismatch, thiếu bước hoặc đáng ngờ.
+- Pipeline không còn khởi tạo model implementation trực tiếp (M2): mỗi capability
+  nằm sau provider port, chọn qua `CapabilityRegistry`/`capability_config.py` tại
+  composition root; fallback bounded theo lỗi kỹ thuật (không fallback vì input
+  quality) với circuit breaker và timeout; readiness báo theo từng capability/provider.
+  Provider chỉ chạy được khi có approval trong `models/manifest.json#providers[]`
+  (governance) và model backing (nếu có) đạt artifact check; mỗi provider trả về
+  typed result dataclass, tự map raw output sang contract chuẩn thay vì để tầng
+  phân tích đoán tên field theo capability.
 - Submit đọc evidence qua storage port và chỉ lưu execution/review signal, metric và
   metadata an toàn; không lưu OCR text, MRZ, transcript, embedding hoặc raw evidence.
 - Docker backend/lip-sync images build thành công, verify mọi artifact trong
@@ -119,13 +131,13 @@ Thứ tự và tiêu chí hoàn thành đầy đủ của từng milestone nằm
 |---|---|---|---|---|---|
 | M0 | Contract, governance và baseline config | `DONE` | Đã chốt `ekyc-analysis/1.0` là analysis-result contract liên tầng; capability list là baseline M0; dataset governance chỉ gồm registry/process; reviewer demo dùng raw evidence viewer qua local guard, audit và kill switch backend | Không còn blocker trong scope M0. Dataset cụ thể/record store là X2/M4; device preflight là M1; provider registry là M2; auth/RBAC là product phase | Cập nhật baseline/roadmap cùng quyết định M0; bắt đầu M1 preflight và M2 provider registry |
 | M1 | Mobile demo-ready trên thiết bị chỉ định | `IN_PROGRESS` | QR claim, capture CCCD/passport, camera/microphone challenge và submit đã chạy ở web; thiết bị demo ban đầu là Tecno Spark 30/Android 14/Chrome | URL/port đang thiên về localhost/loopback; chưa có local HTTPS, preflight, codec matrix, browser exact version và E2E trên thiết bị chỉ định | Dựng same-origin HTTPS; chạy device preflight để ghi codec/camera/browser version; chạy ba lượt E2E |
-| M2 | Capability/provider architecture và fallback | `NOT_STARTED` | Có `EkycAnalyzer` port tổng và capability error isolation | Pipeline vẫn khởi tạo trực tiếp model implementation; chưa có provider registry/fallback attempts | Tách capability contracts, composition registry và fake provider tests |
+| M2 | Capability/provider architecture và fallback | `DONE` | `CapabilityRegistry`/`ProviderChain`/`Attempt` tại `backend/app/{domain/capability_ports.py,adapters/capability_registry.py,adapters/manifest.py,adapters/ekyc_providers.py,adapters/ekyc_orchestrator.py,core/capability_config.py}`; composition root xây registry một lần trong `app/api.py`/`app/purge_worker.py`; 13/15 capability M0 có provider port + readiness riêng, `document_quality`/`speech_verification` báo `NOT_REGISTERED`; output đổi sang `ekyc-analysis/1.0` với `attempts` per-capability. Provider selection (`capability -> primary[,secondary] provider id`) đọc từ `Settings.provider_*`/`.env` (`build_provider_chains`), không hard-code trong `capability_config.py`; provider/model identity chỉ lộ qua reviewer API (`analysis.capabilities.*.attempts`), không lộ qua bất kỳ response nào phía end-user/capture client. Provider governance hai khóa: `models/manifest.json` có thêm mảng `providers[]` (chỉ `id`/`approval_status`/`usage_scope`/`approval_reference` - `capability`/`model_id`/`adapter_spec_version` không lặp lại ở đây vì `ManifestReader` không đọc, đã có trong code), `ManifestReader.provider_ready()` phải approve trước khi `model_ready()` được xét - đăng ký trong `ekyc_providers.py` không còn đủ để một provider chạy được. `scripts/validate_capability_providers.py` đối chiếu cả 3 lớp (code/manifest/.env) bằng một lệnh, không cần boot app. `GET /api/v2/utils/health-check` (không auth, bắt buộc cho Docker `HEALTHCHECK`) chỉ trả `{"status": "ok"}`; breakdown đầy đủ chuyển sang `GET /api/v2/admin/readiness` sau `require_reviewer`. Mỗi provider trả typed result dataclass (`DocumentOcrResult`, `PassiveLivenessResult`, `FaceDetectionResult`, ... trong `capability_ports.py`) thay vì dict tự do - provider tự map raw model output sang contract chuẩn (adapter thật theo M0 §4), `analyzer.py`/`EkycOrchestrator` chỉ đọc field đã normalize qua `dataclasses.asdict`. Kiểm chứng: `backend/tests/test_capability_registry.py` (config-swap, primary→secondary fallback, all-fail → `UNAVAILABLE`, `InvalidEvidenceError` không fallback, circuit breaker, timeout, `NOT_REGISTERED`, provider chưa governance-approved → fail closed); `backend/tests/test_ekyc_flow.py::test_end_user_facing_responses_never_expose_provider_identity`; `uv run pytest` (35 passed); `uv run ruff check/format` và `uv run mypy app ai_modules` sạch cho code mới; smoke test thủ công chạy RapidOCR thật qua registry với `models/manifest.json` thật, trả đúng `DocumentOcrResult` | Mỗi capability hiện chỉ có một provider thật (`secondary` để trống); cơ chế fallback được chứng minh bằng fake provider trong test, chưa có provider thứ hai thật nào chạy trong production path | Khi M4/M5 mang model thay thế đầu tiên: set `PROVIDER_<CAPABILITY>=primary,secondary` trong `.env`, thêm entry cho provider mới vào `models/manifest.json#providers[]` với `approval_status` phù hợp, và định nghĩa typed result mới nếu raw output khác field hiện có; M3 dùng lại registry pattern cho `document_quality` |
 | M3 | Document quality gate và recapture | `NOT_STARTED` | Flow design đã mô tả blur/glare/corner/occlusion | Chưa có implementation, reason-code contract, fixture hoặc state recapture trong runtime hiện tại | Implement quality contract trước OCR và fixture synthetic rõ/mờ/lóa/mất góc |
 | M4 | Benchmark foundation và dataset intake | `NOT_STARTED` | Implementation status đã xác định metric OCR/liveness cần có; candidate dataset được inventory trong roadmap | Chưa có runner/registry/split/report; license dataset chưa được review | Tạo dataset manifest schema, benchmark CLI skeleton và smoke synthetic subset |
 | M5 | Seed threshold và calibration | `NOT_STARTED` | Replay/camera heuristic có threshold evaluation; seed đề xuất được ghi trong roadmap | Face/liveness/deepfake chưa có calibrated threshold hoặc benchmark reference | Chỉ chạy threshold sweep sau M4; freeze `technical-demo-v1` trên development split và report test split |
 | M6 | Admin/manual review controlled disclosure | `NOT_STARTED` | Có review queue, model telemetry, OCR rerun tạm thời và approve/reject | Chưa có masked structured PII, biometric/evidence grant, quyền tách biệt hoặc output recapture/retry/escalate | Chốt review input/output contract; thiết kế disclosure grant/audit trước khi mở raw evidence |
 | M7 | Integrated demo hardening | `NOT_STARTED` | Docker/model smoke và các unit/integration test nền hiện có | Phụ thuộc M1-M6; chưa có full synthetic E2E, load/resource test và demo runbook hoàn chỉnh | Lập acceptance suite và chỉ bắt đầu gate tích hợp khi milestone phụ thuộc có evidence |
-| X1 | Config và secret hardening xuyên suốt | `IN_PROGRESS` | Backend dùng typed settings và `.env`; model/runtime offline flags đã có | Còn placeholder development, credential trong `NEXT_PUBLIC_*`, threshold/hằng số rải rác và chưa có `SecretProvider` | Loại secret khỏi browser bundle; phân loại config; fail placeholder ngoài development/test |
+| X1 | Config và secret hardening xuyên suốt | `IN_PROGRESS` | Backend dùng typed settings và `.env`; model/runtime offline flags đã có; provider selection (M2) đọc từ `.env`, không hard-code; `scripts/models.py --emit-runtime-manifest` strip field governance-only (`source`/`source_repository`/`license`/`purpose`/`distribution_permission`/`approval_reference`/archive URL) khỏi `manifest.json` trước khi `backend/Dockerfile` bake vào runtime image - image chỉ còn field `ManifestReader` thực sự đọc lúc chạy; `models/manifest.json` đầy đủ được bind-mount (`--mount=type=bind`) vào bước build thay vì `COPY`, nên bản đầy đủ không bao giờ nằm trong bất kỳ layer/build-cache nào kể cả khi CI/CD sau này bật registry cache - chỉ output rút gọn mới thực sự ghi vào filesystem của image; verify: `readiness()` giống hệt giữa manifest đầy đủ và manifest rút gọn, `--verify-only` pass trên manifest rút gọn, test `test_runtime_manifest_strips_governance_only_fields` | Còn placeholder development, credential trong `NEXT_PUBLIC_*`, threshold/hằng số rải rác và chưa có `SecretProvider`; provider/model id (vd `minifasnet-v2`) vẫn tự mô tả và vẫn nằm trong image qua cả manifest rút gọn lẫn source code `ekyc_providers.py` - xem mục 8 "MVP feature-complete" về quyết định đổi sang opaque id | Loại secret khỏi browser bundle; phân loại config; fail placeholder ngoài development/test; chạy thử `docker build --target model-fetcher` để xác nhận bước strip chạy đúng trong build thật (mới verify logic Python độc lập, chưa build Docker end-to-end) |
 | X2 | Dataset license/provenance review | `IN_PROGRESS` | Dataset registry schema/process đã được ghi trong `M0_CONTRACT_GOVERNANCE_BASELINE.md`; người dùng là owner quyết định/phê duyệt tạm thời; chưa chốt dataset cụ thể | Chưa có nơi lưu data hoặc license record ngoài Git; chưa review candidate cụ thể | Chọn nơi lưu benchmark/license record ngoài Git trước khi review hoặc download dataset candidate |
 
 ### Quy tắc cập nhật bảng
@@ -170,3 +182,12 @@ demo chạy end-to-end.
    challenge hiện tại.
 7. Chỉ dùng model `production_approved` trong production build profile; readiness
    phải fail closed nếu thiếu model required hoặc approval không hợp lệ.
+8. Quyết định có đổi `provider_id`/`model_id` sang opaque codename (thay vì tên tự mô
+   tả như `minifasnet-v2`, `insightface-buffalo-l-scrfd`) hay không. Đã strip field
+   governance-only khỏi manifest baked vào image (X1), nhưng id tự mô tả vẫn còn trong
+   manifest rút gọn *và* trong source code `ekyc_providers.py` (luôn ship cùng image) -
+   ai đọc được image vẫn biết chính xác model nào canh cửa capability nào. Opaque
+   codename sẽ đóng khoảng hở này nhưng đánh đổi bằng việc log/reviewer API/on-call
+   debug phải tra bảng ánh xạ thay vì đọc tên trực tiếp. Chủ động hoãn cho technical
+   demo (solo dev, chưa xử lý dữ liệu người dùng thật); phải quyết định lại trước khi
+   lên pilot/production hoặc khi có lý do cụ thể để tin hệ thống đang bị nhắm tới.

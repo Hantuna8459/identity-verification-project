@@ -3,15 +3,34 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
 
-from ai_modules.ekyc.anti_spoof import inspect_camera_injection, inspect_replay_attack
-from ai_modules.ekyc.mrz import inspect_td3
-from ai_modules.ekyc.pipeline import aggregate_face_similarities, select_face_match_candidates
-from ai_modules.ekyc.runtime import inspect_head_turn_sequence
+from ai_modules.ekyc.active_liveness import inspect_head_turn_sequence
+from ai_modules.ekyc.camera_injection import inspect_camera_injection
+from ai_modules.ekyc.passport_mrz import inspect_td3
+from ai_modules.ekyc.replay_attack import inspect_replay_attack
 from app.adapters.analyzer import OfflineModelAnalyzer
+from app.adapters.capability_registry import CapabilityRegistry
+from app.adapters.manifest import ManifestReader
+from app.domain.capability_ports import FaceDetectionResult
+from app.domain.face_matching import aggregate_face_similarities, select_face_match_candidates
+
+
+def _empty_registry(model_dir: Path, profile: str = "technical_demo") -> CapabilityRegistry:
+    """A registry with no chains/providers - enough to exercise
+    OfflineModelAnalyzer.readiness()'s manifest-driven aggregate, which
+    doesn't depend on any capability actually being registered."""
+    return CapabilityRegistry(
+        ManifestReader(model_dir, profile),
+        {},
+        {},
+        timeout_seconds=5.0,
+        circuit_failure_threshold=3,
+        circuit_cooldown_seconds=60.0,
+    )
 
 
 def test_icao_td3_check_digits_are_valid_without_exposing_mrz() -> None:
@@ -66,22 +85,99 @@ def test_analyzer_readiness_checks_every_grouped_artifact(tmp_path: Path) -> Non
     }
     (models / "manifest.json").write_text(json.dumps(manifest))
 
-    readiness = OfflineModelAnalyzer(models, True).readiness()
+    readiness = OfflineModelAnalyzer(_empty_registry(models), True).readiness()
 
     assert readiness["ready"] is False
     assert readiness["models"] == ["group"]
     assert readiness["invalid"] == ["group:missing.bin:missing"]
 
 
-def test_model_downloader_rejects_archive_traversal() -> None:
+def _load_model_downloader() -> Any:
     script = Path(__file__).parents[2] / "scripts/models.py"
     spec = importlib.util.spec_from_file_location("model_downloader", script)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    return module
+
+
+def test_model_downloader_rejects_archive_traversal() -> None:
+    module = _load_model_downloader()
 
     with pytest.raises(RuntimeError, match="Unsafe archive member"):
         module._safe_member("../secret")
+
+
+def test_runtime_manifest_strips_governance_only_fields(tmp_path: Path) -> None:
+    """The lean manifest baked into the deployed image must keep only what
+    ManifestReader reads at runtime - not vendor/license/source/purpose,
+    which would otherwise ship inside the container image itself."""
+    module = _load_model_downloader()
+    manifest = {
+        "schema_version": "1.2",
+        "models": [
+            {
+                "id": "some-model",
+                "purpose": "reveals exactly what this model does",
+                "source": "vendor X",
+                "source_repository": "https://example.com/vendor-x/model",
+                "license": "PROPRIETARY",
+                "revision": "v1",
+                "required": True,
+                "approval_status": "evaluation_only",
+                "usage_scope": ["technical_demo"],
+                "distribution_permission": "internal-demo-only",
+                "approval_reference": "AGENTS.md#x",
+                "artifacts": [
+                    {
+                        "source_path": "vendor/weights.onnx",
+                        "path": "weights.onnx",
+                        "size_bytes": 10,
+                        "sha256": "0" * 64,
+                    }
+                ],
+            }
+        ],
+        "providers": [
+            {
+                "id": "some-provider",
+                "capability": "passive_liveness",
+                "model_id": "some-model",
+                "adapter_spec_version": "ekyc-provider-adapter/1",
+                "approval_status": "evaluation_only",
+                "usage_scope": ["technical_demo"],
+                "approval_reference": "AGENTS.md#x",
+            }
+        ],
+    }
+
+    output_path = tmp_path / "manifest.runtime.json"
+    module.emit_runtime_manifest(manifest, output_path)
+    lean = json.loads(output_path.read_text())
+
+    model = lean["models"][0]
+    assert model["id"] == "some-model"
+    assert model["required"] is True
+    assert model["approval_status"] == "evaluation_only"
+    assert model["artifacts"] == [{"path": "weights.onnx", "size_bytes": 10, "sha256": "0" * 64}]
+    governance_only_fields = (
+        "purpose",
+        "source",
+        "source_repository",
+        "license",
+        "distribution_permission",
+        "approval_reference",
+    )
+    for governance_only in governance_only_fields:
+        assert governance_only not in model
+    assert "source_path" not in model["artifacts"][0]
+
+    provider = lean["providers"][0]
+    assert provider == {
+        "id": "some-provider",
+        "approval_status": "evaluation_only",
+        "usage_scope": ["technical_demo"],
+    }
 
 
 def test_head_turn_sequence_requires_both_turns_and_return_to_center() -> None:
@@ -113,14 +209,15 @@ def test_replay_heuristic_flags_duplicate_frames() -> None:
 
 
 def test_face_match_selects_multiple_high_confidence_frames_with_a_limit() -> None:
+    empty = np.zeros(5)
     candidates = [
-        (np.full((1, 1, 3), index), {"score": score})
+        (np.full((1, 1, 3), index), FaceDetectionResult(score=score, bbox=empty, landmarks=empty))
         for index, score in enumerate([0.70, 0.95, 0.80, 0.90])
     ]
 
     selected = select_face_match_candidates(candidates, maximum=3)
 
-    assert [candidate[1]["score"] for candidate in selected] == [0.95, 0.90, 0.80]
+    assert [candidate[1].score for candidate in selected] == [0.95, 0.90, 0.80]
 
 
 def test_face_match_uses_median_to_resist_one_optimistic_frame() -> None:
@@ -222,3 +319,73 @@ def test_model_output_preserves_unavailable_ocr_without_false_success() -> None:
 
     assert normalized["ocr"]["execution_status"] == "UNAVAILABLE"
     assert normalized["ocr"]["review_signal"] == "UNAVAILABLE"
+
+
+def test_model_output_passes_through_attempts_provenance() -> None:
+    attempts = [
+        {
+            "provider_id": "fake-primary",
+            "provider_role": "primary",
+            "status": "FAILED",
+            "reason_codes": ["RuntimeError"],
+        },
+        {
+            "provider_id": "fake-secondary",
+            "provider_role": "secondary",
+            "status": "COMPLETED",
+            "reason_codes": [],
+        },
+    ]
+    normalized = OfflineModelAnalyzer.normalize_capabilities(
+        {
+            "liveness": {
+                "status": "OK",
+                "engine": "fake-secondary",
+                "live_probability": 0.9,
+                "attempts": attempts,
+            }
+        }
+    )
+
+    assert normalized["liveness"]["attempts"] == attempts
+    # A successful fallback must not be misread as a capability-level failure.
+    assert normalized["liveness"]["execution_status"] == "COMPLETED"
+
+
+def test_model_output_derives_reason_codes_from_failed_attempts() -> None:
+    attempts = [
+        {
+            "provider_id": "fake-primary",
+            "provider_role": "primary",
+            "status": "UNAVAILABLE",
+            "reason_codes": ["REQUIRED_MODEL_ARTIFACT_INVALID"],
+        }
+    ]
+    normalized = OfflineModelAnalyzer.normalize_capabilities(
+        {"liveness": {"status": "UNAVAILABLE", "attempts": attempts}}
+    )
+
+    assert normalized["liveness"]["execution_status"] == "UNAVAILABLE"
+    assert normalized["liveness"]["reason_codes"] == ["REQUIRED_MODEL_ARTIFACT_INVALID"]
+
+
+def test_collect_statuses_ignores_attempt_level_status() -> None:
+    """A capability that succeeded via fallback must not leak its failed
+    attempt's UNAVAILABLE/FAILED status into the top-level rollup."""
+    capabilities = OfflineModelAnalyzer.normalize_capabilities(
+        {
+            "liveness": {
+                "status": "OK",
+                "live_probability": 0.9,
+                "attempts": [
+                    {"status": "UNAVAILABLE", "reason_codes": []},
+                    {"status": "COMPLETED", "reason_codes": []},
+                ],
+            }
+        }
+    )
+
+    statuses = OfflineModelAnalyzer._collect_statuses(capabilities)
+
+    assert "UNAVAILABLE" not in statuses
+    assert "COMPLETED" in statuses

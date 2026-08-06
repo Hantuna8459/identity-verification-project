@@ -17,3 +17,5 @@ __pycache__
 models/**
 !models/manifest.json
 !models/cccd_layout_yolov11.pt
+AGENTS.md
+CLAUDE.md

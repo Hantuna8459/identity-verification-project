@@ -84,6 +84,65 @@ def test_full_cccd_qr_capture_and_manual_review(client: TestClient) -> None:
     assert status.json()["decision"] == "APPROVED"
 
 
+def test_end_user_facing_responses_never_expose_provider_identity(client: TestClient) -> None:
+    """Provider/model identity is dev-team-only, surfaced through the
+    reviewer API's `analysis` field - it must never appear in any response
+    the capture/desktop client (an unauthenticated end user, from the
+    platform's point of view) can see."""
+    provider_markers = [
+        "rapidocr",
+        "insightface",
+        "minifasnet",
+        "vosk-small",
+        "syncnet",
+        "cccd-layout-yolov11",
+        "scrfd",
+        "deepfake-detector",
+        "provider_id",
+        "adapter_spec_version",
+        "manifest_entry_id",
+        '"attempts"',
+        '"engine"',
+    ]
+
+    flow = create_claimed_session(client)
+    capture_headers = {"Authorization": f"Bearer {flow['capture_token']}"}
+    responses = [client.post("/api/v2/ekyc/capture/voice-challenge", headers=capture_headers)]
+    for kind, media_type in (
+        ("DOCUMENT_FRONT", "image/jpeg"),
+        ("DOCUMENT_BACK", "image/jpeg"),
+        ("SELFIE_VIDEO", "video/webm"),
+    ):
+        responses.append(
+            client.post(
+                f"/api/v2/ekyc/capture/evidence/{kind}",
+                headers=capture_headers,
+                files={"file": (f"{kind.lower()}.bin", b"synthetic-evidence-content", media_type)},
+            )
+        )
+    responses.append(client.post("/api/v2/ekyc/capture/submit", headers=capture_headers))
+    responses.append(
+        client.get(f"/api/v2/ekyc/sessions/{flow['session_id']}", headers=flow["desktop_headers"])
+    )
+    responses.append(
+        client.get(
+            f"/api/v2/ekyc/sessions/{flow['session_id']}/handoff-status",
+            headers=flow["desktop_headers"],
+        )
+    )
+
+    for response in responses:
+        body = response.text.lower()
+        for marker in provider_markers:
+            assert marker.lower() not in body, f"{marker!r} leaked via {response.request.url}"
+
+    # Sanity check: the reviewer surface (a different trust boundary) is
+    # allowed to see it - proves the assertions above are actually
+    # exercising the leak path, not just testing an empty analysis.
+    detail = client.get(f"/api/v2/reviews/{flow['session_id']}", headers=REVIEWER_HEADERS)
+    assert "provider_id" in detail.text
+
+
 def test_demo_ocr_rerun_decrypts_only_document_evidence_without_persisting(
     client: TestClient, monkeypatch
 ) -> None:
