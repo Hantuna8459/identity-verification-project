@@ -1,15 +1,33 @@
-# Baseline đánh giá so sánh eyePass và V-ID-eKYC
+# Baseline đánh giá V-ID-eKYC đối chiếu yêu cầu/đặc tả eyePass
 
-Cập nhật: 2026-08-04.  
+Cập nhật: 2026-08-09.  
 Thời lượng đánh giá: 5 ngày làm việc, bắt đầu từ ngày kế tiếp khi owner xác nhận.
 
 ## 1. Mục đích
 
-Tạo một đánh giá có bằng chứng về hai hệ thống:
+Đây **không phải** một đánh giá ngang hàng giữa hai hệ thống đang vận hành. Đây
+là một đánh giá **một chiều**: V-ID-eKYC là đối tượng được đánh giá; eyePass chỉ
+đóng vai trò **nguồn yêu cầu/đặc tả tham chiếu** để rút ra checklist năng lực cần
+đối chiếu. Lý do:
 
-- **eyePass**: sản phẩm eKYC cũ, chỉ dùng làm baseline tham chiếu.
-- **V-ID-eKYC**: dự án hiện tại, đánh giá theo tài liệu chính thức và evidence
-  triển khai hiện có.
+- **eyePass**: là sản phẩm eKYC đã được xây dựng và vận hành trước đây, nhưng
+  người đánh giá **chỉ tiếp cận được tài liệu bàn giao** (BRD, flow, API/SDK doc,
+  checklist) — **không có quyền truy cập source code, test, database hay
+  runtime**. eyePass vì vậy không được chấm maturity/confidence như một hệ thống
+  — nó chỉ được ghi nhận theo mức độ đặc tả **nêu rõ yêu cầu** tới đâu (rubric
+  §4: `Không đề cập` / `Nêu chưa đầy đủ` / `Nêu rõ`), luôn ở confidence `Doc-only`
+  cố định. Đây là giới hạn evidence, không phải nhận định eyePass "không thật"
+  hay "yếu".
+- **V-ID-eKYC**: dự án hiện tại, đang ở giai đoạn **technical demo**, chưa
+  `MVP feature-complete`, chưa production. Đánh giá theo tài liệu chính thức và
+  evidence triển khai hiện có; nhiều capability chỉ ở mức thiết kế (`Designed`,
+  rubric §3) hoặc chủ động để `TBD`.
+
+Vì cả hai giới hạn trên, **không có công bố "hệ thống nào tốt hơn"** ở cấp tổng
+thể. Đầu ra hợp lệ duy nhất của đánh giá này là: với từng yêu cầu/năng lực rút ra
+từ đặc tả eyePass, V-ID-eKYC đang **đáp ứng, vượt, thiếu, hay chủ động không kế
+thừa** yêu cầu đó — kèm evidence và mức tin cậy cho từng nhận định. eyePass không
+được chấm "thắng/thua"; nó chỉ được dùng để tạo checklist.
 
 Đánh giá này không phải chứng nhận chất lượng model, compliance, pilot hoặc
 production readiness. Không suy luận rằng một capability đã tồn tại chỉ vì nó
@@ -23,11 +41,15 @@ production readiness. Không suy luận rằng một capability đã tồn tại
 2. eyePass không phải chuẩn bắt buộc. Rule, test case và kinh nghiệm vận hành từ
    eyePass chỉ được kế thừa có chọn lọc.
 3. V-ID-eKYC phải được ghi nhận là cải tiến khi thiết kế giải quyết được rủi ro
-   hoặc giới hạn của eyePass, kể cả khi capability đó chưa hoàn thiện.
+   hoặc giới hạn nêu trong đặc tả eyePass, kể cả khi capability đó chưa hoàn thiện.
 4. Với V-ID-eKYC, `technical demo`, `MVP feature-complete` và `production` là ba
    mức riêng biệt. Không gộp chúng thành một nhận định readiness.
 5. Không đưa PII, raw evidence, token, private API key hoặc response OCR/model
    chi tiết từ tài liệu cũ vào báo cáo, spreadsheet, Git hoặc presentation.
+6. Đây là đánh giá **một chiều** (§1): không viết hoặc suy luận bất kỳ câu nào có
+   dạng "V-ID tốt hơn/kém eyePass" ở cấp hệ thống hay cấp tổng hợp. Mọi nhận định
+   phải gắn với một yêu cầu cụ thể rút ra từ đặc tả eyePass, kèm maturity và
+   confidence của V-ID cho yêu cầu đó.
 
 ## 3. Nguồn evidence và thứ tự ưu tiên
 
@@ -37,7 +59,9 @@ production readiness. Không suy luận rằng một capability đã tồn tại
 2. [`EKYC_FLOW_DESIGN.md`](./EKYC_FLOW_DESIGN.md).
 3. [`M0_CONTRACT_GOVERNANCE_BASELINE.md`](./M0_CONTRACT_GOVERNANCE_BASELINE.md).
 4. [`PROJECT_ROADMAP.md`](./PROJECT_ROADMAP.md).
-5. [`IMPLEMENTATION_STATUS.md`](./IMPLEMENTATION_STATUS.md).
+5. [`IMPLEMENTATION_STATUS.md`](./IMPLEMENTATION_STATUS.md) — chỉ để định hướng
+   đọc source ở đâu; **không được trích dẫn làm evidence** trong bất kỳ dòng
+   đánh giá nào (rubric §2, §5; `AGENTS.md` mục "Thứ tự ưu tiên tài liệu").
 6. Source code, test, CI/run output, model manifest và cấu hình đã được phép xem.
 
 ### 3.2 eyePass
@@ -55,32 +79,25 @@ evidence đi kèm, phải ghi rõ là **được mô tả, chưa xác minh**.
 
 ## 4. Rubric chuẩn
 
-Rubric chấm chi tiết, trọng số, critical gate, evidence card và template workbook
-được chuẩn hóa tại
-[EKYC_COMPARATIVE_ASSESSMENT_RUBRIC.md](./EKYC_COMPARATIVE_ASSESSMENT_RUBRIC.md).
+Rubric chấm chi tiết (V-ID: capability maturity §3 + evidence confidence §5;
+eyePass: mức độ nêu trong đặc tả §4; kiến trúc so sánh riêng §8) được chuẩn hóa
+tại [EKYC_COMPARATIVE_ASSESSMENT_RUBRIC.md](./EKYC_COMPARATIVE_ASSESSMENT_RUBRIC.md).
 Tài liệu này giữ baseline, phạm vi và kế hoạch đánh giá; khi có khác biệt về cách
 chấm, rubric chi tiết là nguồn áp dụng.
 
-### 4.1 Mức evidence
+### 4.1 Capability maturity (V-ID) và mức nêu trong đặc tả (eyePass)
 
-| Mã | Nghĩa | Điều kiện tối thiểu |
-|---|---|---|
-| `E0` | Chưa có evidence | Không có tài liệu hoặc artifact kiểm chứng. |
-| `E1` | Được mô tả | Có BRD, diagram, checklist hoặc roadmap. |
-| `E2` | Đã thiết kế | Có contract, ADR, data/state design hoặc acceptance criteria rõ. |
-| `E3` | Đã triển khai | Có source/configuration phù hợp với thiết kế. |
-| `E4` | Đã kiểm chứng | Có test, run output hoặc review evidence có thể truy vết. |
+V-ID và eyePass **không dùng chung một thang chấm**: V-ID được chấm trên trục
+maturity + confidence (rubric §3, §5, từ ngữ thuần, không có mã `L0`–`L4`);
+eyePass chỉ được ghi nhận theo mức độ đặc tả nêu rõ yêu cầu (rubric §4, 3 mức).
+Không copy lại bảng ở đây để tránh hai tài liệu lệch nhau theo thời gian — khi
+cần tra cứu mức cụ thể, mở rubric.
 
-### 4.2 Nhận định so sánh
+### 4.2 Nhận định đối chiếu
 
-| Trạng thái | Cách dùng |
-|---|---|
-| `CẢI TIẾN ĐÃ THIẾT KẾ` | V-ID có thiết kế tốt hơn eyePass nhưng chưa đủ E3/E4. |
-| `CẢI TIẾN ĐÃ KIỂM CHỨNG` | V-ID có cải tiến và evidence đạt E4. |
-| `KẾ THỪA CÓ CHỌN LỌC` | Rule/test/kinh nghiệm eyePass nên đưa vào V-ID sau khi rà soát. |
-| `CẦN HOÀN THIỆN` | Năng lực cần cho scope V-ID nhưng evidence/implementation chưa đủ. |
-| `KHÔNG KẾ THỪA` | Cách làm eyePass không phù hợp nguyên tắc hoặc scope V-ID. |
-| `NGOÀI PHẠM VI` | Không thuộc technical demo/MVP đang đánh giá. |
+Xem rubric §9 (`ĐÃ ĐÁP ỨNG — KIỂM CHỨNG ĐƯỢC`, `ĐÃ ĐÁP ỨNG — THEO THIẾT KẾ`,
+`NGOÀI YÊU CẦU EYEPASS`, `KẾ THỪA CÓ CHỌN LỌC`, `GAP`, `DEFERRED_BY_DESIGN`,
+`KHÔNG KẾ THỪA`, `OUT_OF_SCOPE`, `CHƯA KẾT LUẬN`).
 
 ### 4.3 Mức ưu tiên hành động
 
@@ -109,35 +126,44 @@ dấu riêng là scope cũ/ngoài scope, trừ khi owner quyết định đưa v
 
 ## 6. Ma trận đánh giá bắt buộc
 
-Mỗi capability C01--C10 có một hoặc nhiều dòng trong workbook
-`04_Gap_and_Traceability_Matrix.xlsx` với các cột sau:
+Mỗi capability C01--C10 có một hoặc nhiều dòng trong Phần D (Gap & Traceability
+Matrix) của
+[`assessment/eKYC_Assessment_Report.md`](./assessment/eKYC_Assessment_Report.md)
+(markdown, không phải workbook xlsx) với các cột sau:
 
 | Cột | Nội dung |
 |---|---|
 | `Capability ID` | C01--C10 và capability con. |
 | `Yêu cầu/năng lực` | Mô tả ngắn, trung lập. |
-| `Evidence eyePass` | Tên tài liệu, section/sheet/cell; không chép PII. |
-| `Mức evidence eyePass` | E0--E4. |
+| `Trích dẫn eyePass` | Tên tài liệu, section/sheet/cell; không chép PII. |
+| `Mức nêu trong đặc tả eyePass` | `Không đề cập` / `Nêu chưa đầy đủ` / `Nêu rõ` (rubric §4). Confidence eyePass luôn cố định `Doc-only`, không cần cột riêng. |
 | `Evidence V-ID` | File, section, test hoặc commit/run evidence. |
-| `Mức evidence V-ID` | E0--E4. |
-| `Nhận định` | Một giá trị ở mục 4.2. |
-| `Lợi ích/cải tiến V-ID` | Nêu rõ thiết kế/implementation tốt hơn eyePass nếu có. |
-| `Gap hoặc việc cần làm` | Chỉ nêu phần chưa đủ evidence/scope. |
-| `Ưu tiên` | P0/P1/P2/TBD. |
+| `Maturity V-ID` | `Absent` / `Conceptual` / `Designed` / `Implemented` / `Hardened` (rubric §3). |
+| `Confidence V-ID` | Doc-only / Self-reported / Source-reviewed / Test-verified (rubric §5). |
+| `Status` | IN_SCOPE / OUT_OF_SCOPE / DEFERRED_BY_DESIGN / GAP (rubric §6, mô tả lập trường của V-ID). |
+| `Nhận định` | Một giá trị ở rubric §9. |
+| `Lợi ích/cải tiến V-ID` | Nêu rõ V-ID đáp ứng/vượt yêu cầu eyePass thế nào, hoặc năng lực nào V-ID có ngoài yêu cầu eyePass (`NGOÀI YÊU CẦU EYEPASS`) — không viết "tốt hơn eyePass" nếu eyePass không nêu yêu cầu đó. |
+| `Gap hoặc việc cần làm` | Chỉ nêu phần chưa đủ evidence/scope, tách riêng khỏi `DEFERRED_BY_DESIGN`. |
+| `Ưu tiên` | P0/P1/P2/DEFERRED. |
 | `Owner đề xuất` | Product, Backend, AI, Security/Privacy, Platform hoặc Integration. |
 | `Quyết định cần chốt` | Liên kết ID trong decision log nếu cần. |
 
 ## 7. Deliverable cuối tuần
 
-1. `01_Executive_Summary.md` (hoặc presentation 8--12 slide).
-2. `02_EyePass_AsIs_Assessment.md`.
-3. `03_VID_eKYC_ToBe_Assessment.md`.
-4. `04_Gap_and_Traceability_Matrix.xlsx`.
-5. `05_Risk_and_Decision_Log.md`.
+Một file duy nhất,
+[`assessment/eKYC_Assessment_Report.md`](./assessment/eKYC_Assessment_Report.md),
+gồm 5 phần theo đúng thứ tự đọc (gộp lại từ 5 deliverable tách file trước đây để
+dễ theo dõi, nội dung tương đương):
 
-Mỗi kết luận trong executive summary phải link tới một dòng ma trận hoặc một nguồn
-evidence. Báo cáo phải có riêng hai phần: **cải tiến của V-ID-eKYC** và **việc cần
-hoàn thiện**, không chỉ có danh sách gap.
+1. Phần A — Executive Summary (hoặc presentation 8--12 slide song song).
+2. Phần B — eyePass As-Is (đặc tả tham chiếu theo tài liệu bàn giao).
+3. Phần C — V-ID-eKYC To-Be (đánh giá năng lực theo đặc tả và implementation).
+4. Phần D — Gap & Traceability Matrix.
+5. Phần E — Risk & Decision Log.
+
+Mỗi kết luận trong Executive Summary phải link tới một dòng ma trận (Phần D) hoặc
+một nguồn evidence. Báo cáo phải có riêng hai phần: **cải tiến của V-ID-eKYC** và
+**việc cần hoàn thiện**, không chỉ có danh sách gap.
 
 ## 8. Kế hoạch 5 ngày
 

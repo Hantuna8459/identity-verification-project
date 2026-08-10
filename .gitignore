@@ -27,3 +27,4 @@ models/**
 !models/cccd_layout_yolov11.pt
 AGENTS.md
 CLAUDE.md
+docs/IMPLEMENTATION_STATUS.md
