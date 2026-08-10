@@ -28,3 +28,4 @@ models/**
 AGENTS.md
 CLAUDE.md
 docs/IMPLEMENTATION_STATUS.md
+.claude/
