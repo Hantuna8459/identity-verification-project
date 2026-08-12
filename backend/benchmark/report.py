@@ -16,7 +16,7 @@ def build_report(
     capability: str,
     provider_id: str,
     model_id: str | None,
-    dataset: dataset_registry.DatasetRecord,
+    dataset: dataset_registry.DatasetRecord | dict[str, Any],
     sample_count: int,
     excluded_count: int,
     metrics_out: dict[str, Any],
@@ -25,13 +25,22 @@ def build_report(
     candidate_engines: list[dict[str, Any]] | None = None,
     notes: str | None = None,
 ) -> dict[str, Any]:
+    # A plain dict is for real, non-distributable local evidence (e.g.
+    # fieldcheck/local_cases/) that deliberately isn't registered in
+    # dataset_registry.py - that registry's approval schema is for licensed,
+    # distributable datasets, not a developer's own consented recordings.
+    dataset_fields = (
+        dataset_registry.as_report_fields(dataset)
+        if isinstance(dataset, dataset_registry.DatasetRecord)
+        else dataset
+    )
     return {
         "schema_version": "1.0",
         "generated_at": datetime.now(UTC).isoformat(),
         "capability": capability,
         "provider_id": provider_id,
         "model_id": model_id,
-        "dataset": dataset_registry.as_report_fields(dataset),
+        "dataset": dataset_fields,
         "device": {
             "os": platform.platform(),
             "python": sys.version.split()[0],

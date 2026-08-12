@@ -47,6 +47,11 @@ and requires an explicit override.
 only (`analyze_document()`) instead of the full 13-capability pipeline
 (`analyze()`) - useful for a quick "just check my ID photo" case.
 
+`backend/benchmark/`'s `voice_challenge` and `lip_sync` runners
+(`python -m benchmark.cli run --capability voice_challenge|lip_sync`) reuse
+this same `local_cases/` directory - one real-evidence source for both
+tools, not two. See those runners' module docstrings for details.
+
 The selfie video's own audio track is what the voice-challenge check
 transcribes - there's no separate audio evidence type. Record what digits you
 actually said and put them in `case.json`'s `voice_challenge` (or pass

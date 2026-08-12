@@ -10,7 +10,7 @@ from pathlib import Path
 
 from syncnet_python import SyncNetPipeline
 
-from app.schemas import LipSyncResponse
+from .schemas import LipSyncResponse
 
 logger = logging.getLogger(__name__)
 

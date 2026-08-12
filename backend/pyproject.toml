@@ -34,6 +34,11 @@ dev = [
   # vietocr's gdown dependency imports pkg_resources, which setuptools>=81
   # dropped - pin below that so it's actually importable.
   "setuptools<81",
+  # benchmark_only, same reasoning as vietocr above: lets
+  # benchmark/runners/lip_sync_runner.py run SyncNet locally, in-process
+  # (no Docker/HTTP microservice), never shipped in the runtime image.
+  "syncnet-python>=0.2.2,<1.0.0",
+  "scenedetect[opencv]==0.6.4",
 ]
 
 [build-system]
