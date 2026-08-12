@@ -2,8 +2,8 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Phiên bản | 2.0 |
-| Cập nhật | 2026-08-09 |
+| Phiên bản | 2.3 |
+| Cập nhật | 2026-08-11 |
 | Đi kèm | [`EKYC_COMPARATIVE_ASSESSMENT_RUBRIC.md`](./EKYC_COMPARATIVE_ASSESSMENT_RUBRIC.md) phiên bản 3.0 (V-ID chấm trên trục maturity từ ngữ thuần + confidence; eyePass chấm trên trục riêng "mức độ nêu trong đặc tả", không dùng chung thang với V-ID). Nếu rubric thay đổi version mà tài liệu này chưa được cập nhật theo, rubric là nguồn áp dụng. |
 | Mục đích | Định nghĩa thống nhất các thuật ngữ và nguyên tắc đọc dùng trong ma trận đối chiếu, nhằm giảm sai lệch khi các bên liên quan diễn giải kết quả đánh giá. |
 | Áp dụng cho | Mọi bên đọc `assessment/eKYC_Assessment_Report.md` (đặc biệt Phần D — Gap & Traceability Matrix) hoặc bất kỳ deliverable nào trích dẫn kết quả từ rubric. |
@@ -48,8 +48,8 @@ như một xếp hạng "hệ thống nào tốt hơn".
    `maturity`/`confidence` nào cho yêu cầu đó (§3, §4), và giới hạn evidence đi
    kèm.
 6. Không có domain score hay điểm tổng hợp nào để quy đổi — mỗi tiêu chí đứng
-   độc lập. Một tiêu chí ở mức `Absent`/`GAP` với ưu tiên `P0` không được xem là
-   đã được xử lý chỉ vì các tiêu chí khác trong cùng domain đạt `maturity` cao.
+   độc lập. Một tiêu chí ở mức `Absent`/`GAP` nghiêm trọng không được xem là đã
+   được xử lý chỉ vì các tiêu chí khác trong cùng domain đạt `maturity` cao.
 
 ## 3. Capability maturity (chỉ áp dụng cho V-ID)
 
@@ -112,9 +112,11 @@ eyePass hay từ nguồn khác.
 `DEFERRED_BY_DESIGN` và `GAP` là hai trạng thái khác biệt về bản chất và không
 được gộp chung khi tổng hợp. Ví dụ: việc V-ID chưa phê duyệt ngưỡng (threshold)
 production là một quyết định có chủ đích, được ghi nhận trong tài liệu quản trị
-nội bộ của dự án — xếp loại `DEFERRED_BY_DESIGN`. Ngược lại, việc phân quyền cho
-các thao tác xem/tải/xóa dữ liệu gốc chưa được thiết kế chi tiết theo từng vai
-trò, và không có lý do chủ đích nào được ghi nhận cho việc này — xếp loại `GAP`.
+nội bộ của dự án — xếp loại `DEFERRED_BY_DESIGN`. Ngược lại, hai biến bí mật
+`VID_CLIENT_KEY`/`REVIEWER_TOKEN` hiện fallback êm về giá trị mặc định công khai
+khi thiếu cấu hình, không có gate nào theo `environment` để chặn việc này ngoài
+development, và không có lý do chủ đích nào được ghi nhận cho khoảng hở đó —
+xếp loại `GAP`.
 
 ## 6. Nhận định kết luận
 
@@ -187,9 +189,15 @@ quyết định), đây được xem là kỷ luật quản trị phù hợp, kh
 Chỉ khi không có lý do chủ đích nào được ghi nhận, tiêu chí đó mới được xếp loại
 `GAP`.
 
-**Ai là người xác nhận mức ưu tiên `P0`/`P1`/`P2`?**
-Người đánh giá đề xuất mức ưu tiên dựa trên rủi ro quan sát được, nhưng owner dự
-án là người xác nhận cuối cùng, đặc biệt đối với mọi mục ở mức `P0`.
+**Vì sao ma trận không có cột ưu tiên dạng mã (`P0`/`P1`/`P2`)?**
+Một thang mã chữ+số đọc như một hệ thống xếp hạng ticket/task-tracker (kiểu
+Jira), gợi ý đây là một backlog cần lên lịch — trong khi tài liệu này chỉ là
+đánh giá năng lực, không phải công cụ quản lý công việc cho một đội nhiều
+người. Mức độ đáng lo ngại của từng `GAP` được nêu thẳng bằng câu chữ ngay
+trong ô Ghi chú của dòng đó (vd. "rủi ro bảo mật thật, nên xử lý sớm" so với
+"edge case, không chặn happy path") thay vì một mã ưu tiên riêng. Người đánh
+giá nêu nhận định dựa trên rủi ro quan sát được, nhưng owner dự án luôn là
+người xác nhận cuối cùng trước khi coi bất kỳ mục nào là "xong" hay "đủ gấp".
 
 **Vì sao không tổng hợp thành một điểm số duy nhất cho toàn hệ thống?**
 Một chỉ số tổng hợp duy nhất sẽ xóa bỏ sự khác biệt giữa "chưa kiểm chứng được",
@@ -207,9 +215,10 @@ tách biệt hiện tại (rubric v3.0).
 > **C04.1** — Kết quả phân tích, tín hiệu dành cho người duyệt và quyết định
 > cuối cùng phải được tách biệt, không gộp làm một.
 >
-> - eyePass: `Nêu chưa đầy đủ` — tài liệu API cho thấy hệ thống trả về một mã
->   duy nhất đóng vai trò vừa là kết quả xử lý vừa là quyết định, không có sự
->   tách biệt như yêu cầu; đặc tả không tự nhận đây là một thiếu sót cần sửa.
+> - eyePass: `Nêu rõ` — API doc mô tả cụ thể `POST /ekyc/auth_face` trả một
+>   `code`+`message` phẳng, chính là verdict, không có sự tách biệt như yêu
+>   cầu; đặc tả mô tả cụ thể hành vi này, chỉ là không đáp ứng yêu cầu tách
+>   biệt — không phải trường hợp tài liệu mơ hồ.
 > - V-ID: maturity `Hardened`, confidence `Test-verified` — source code tách
 >   riêng rõ ràng ba thành phần này, và có test tự động kiểm chứng.
 > - Nhận định: `ĐÃ ĐÁP ỨNG — KIỂM CHỨNG ĐƯỢC`.
