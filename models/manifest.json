@@ -80,10 +80,10 @@
       "size_bytes": 151815373,
       "license": "WEIGHT_LICENSE_REVIEW_REQUIRED",
       "required": false,
-      "approval_status": "quarantined",
-      "usage_scope": [],
-      "distribution_permission": "not-established",
-      "approval_reference": null
+      "approval_status": "evaluation_only",
+      "usage_scope": ["benchmark_only"],
+      "distribution_permission": "internal-benchmark-only-pending-legal-review",
+      "approval_reference": "Owner accepted risk for benchmark_only use ahead of pilot/product (2026-08-11): no formal legal/license review has occurred on the pbcquoc/vietocr weight (WEIGHT_LICENSE_REVIEW_REQUIRED still unresolved). Owner's rationale: pre-product internal benchmarking carries low external exposure, and the capability/provider architecture (M2 - CapabilityRegistry/ProviderChain) means this model can be swapped out without a redesign if a legal concern surfaces before pilot/production. Deliberately NOT scoped to technical_demo/production - usage_scope excludes it from the Docker build/runtime downloader (scripts/models.py --profile technical_demo), so it cannot reach a deployed image under this decision. Re-review required before any production_approved change."
     },
     {
       "id": "insightface-buffalo-l",

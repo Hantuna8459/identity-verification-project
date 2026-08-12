@@ -25,6 +25,12 @@ htmlcov/
 models/**
 !models/manifest.json
 !models/cccd_layout_yolov11.pt
+backend/benchmark/reports/*
+!backend/benchmark/reports/.gitkeep
+backend/fieldcheck/local_runs/*
+!backend/fieldcheck/local_runs/.gitkeep
+backend/fieldcheck/local_cases/*
+!backend/fieldcheck/local_cases/.gitkeep
 AGENTS.md
 CLAUDE.md
 docs/IMPLEMENTATION_STATUS.md

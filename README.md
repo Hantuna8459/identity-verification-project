@@ -104,10 +104,13 @@ Profile `technical_demo` hiện bật:
 - Vosk Vietnamese small 0.4 cho voice challenge;
 - SyncNetV2/S3FD qua service lip-sync.
 
-`vietocr_vgg_transformer.pth` có entry/checksum trong manifest nhưng ở trạng thái
-`quarantined`, không được downloader hoặc Docker build tải vì quyền sử dụng weight
-chưa được xác lập. InsightFace `buffalo_l` chỉ là `evaluation_only` cho demo nội bộ,
-không được hiểu là đã có quyền phân phối hoặc dùng production.
+`vietocr_vgg_transformer.pth` có entry/checksum trong manifest, `approval_status`
+`evaluation_only` với `usage_scope: [benchmark_only]` (quyết định owner 2026-08-11,
+license vẫn `WEIGHT_LICENSE_REVIEW_REQUIRED` - chưa review) - vẫn không được
+downloader/Docker build tải cho profile `technical_demo` vì `usage_scope` không khớp
+profile đó, chỉ dùng được cho benchmark nội bộ ngoài runtime path. InsightFace
+`buffalo_l` chỉ là `evaluation_only` cho demo nội bộ, không được hiểu là đã có quyền
+phân phối hoặc dùng production.
 
 Khi manifest thay đổi, cần build lại image và recreate container bằng đúng env
 file; running container không tự nhận manifest mới:

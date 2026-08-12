@@ -22,10 +22,18 @@ dependencies = [
 ]
 
 [dependency-groups]
+# Everything here is excluded from the Docker image (Dockerfile runs
+# `uv sync --frozen --no-dev`) - vietocr lives here specifically because it's
+# benchmark_only (models/manifest.json), not an active provider, and must not
+# ship in the runtime image.
 dev = [
   "pytest>=8.0.0,<9.0.0",
   "ruff>=0.8.0,<1.0.0",
   "mypy>=1.8.0,<2.0.0",
+  "vietocr>=0.3.13,<1.0.0",
+  # vietocr's gdown dependency imports pkg_resources, which setuptools>=81
+  # dropped - pin below that so it's actually importable.
+  "setuptools<81",
 ]
 
 [build-system]
