@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import asdict
 from typing import Annotated, Any
 from urllib.parse import urlencode
 
@@ -17,6 +18,8 @@ from fastapi import (
 )
 from sqlmodel import Session, select
 
+from ai_modules.ekyc.errors import InvalidEvidenceError
+from ai_modules.ekyc.media import decode_image
 from app.adapters.analyzer import OfflineModelAnalyzer
 from app.adapters.capability_registry import CapabilityRegistry
 from app.adapters.ekyc_providers import build_capability_registry
@@ -24,6 +27,7 @@ from app.adapters.security import TokenService
 from app.adapters.storage import EncryptedLocalEvidenceStorage
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
+from app.domain.capability_ports import DocumentQualityRequest
 from app.domain.models import AuditEvent, EkycSession, Evidence, Handoff, ReviewTask
 from app.domain.schemas import (
     ClaimRequest,
@@ -291,11 +295,19 @@ ALLOWED_CONTENT_TYPES = {
     "SELFIE_VIDEO": {"video/mp4", "video/webm", "video/quicktime"},
 }
 
+# document_quality only makes sense for a still document photo, not the
+# selfie video - and it runs synchronously right here, at upload time, so
+# the client can prompt an immediate retake instead of waiting for the full
+# async analyze() pipeline (M0_CONTRACT_GOVERNANCE_BASELINE.md: "quality
+# check before layout/OCR").
+_DOCUMENT_QUALITY_EVIDENCE_TYPES = {"DOCUMENT_FRONT", "DOCUMENT_BACK", "PASSPORT_PAGE"}
+
 
 @router.post("/ekyc/capture/evidence/{evidence_type}", status_code=201)
 async def upload_evidence(
     evidence_type: str,
     core: Annotated[EkycService, Depends(service)],
+    registry: CapabilityRegistryDep,
     token: Annotated[str, Depends(capture_bearer)],
     file: Annotated[UploadFile, File()],
 ) -> dict[str, Any]:
@@ -319,12 +331,24 @@ async def upload_evidence(
     if not payload or len(payload) > max_mb * 1024 * 1024:
         raise HTTPException(status_code=413, detail=f"File must be between 1 byte and {max_mb} MB")
     entry = core.add_evidence(item, evidence_type, content_type, payload)
-    return {
+    response: dict[str, Any] = {
         "evidence_id": entry.id,
         "evidence_type": entry.evidence_type,
         "size_bytes": entry.size_bytes,
         "sha256": entry.sha256,
     }
+    if evidence_type in _DOCUMENT_QUALITY_EVIDENCE_TYPES:
+        try:
+            image = decode_image(payload)
+        except InvalidEvidenceError:
+            pass
+        else:
+            result, attempts = registry.run("document_quality", DocumentQualityRequest(image=image))
+            response["quality"] = (
+                asdict(result) if result is not None else {"status": "UNAVAILABLE"}
+            )
+            response["quality"]["attempts"] = [attempt.to_dict() for attempt in attempts]
+    return response
 
 
 @router.post("/ekyc/capture/submit")

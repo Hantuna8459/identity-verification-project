@@ -19,25 +19,23 @@ dependencies = [
   "torch>=2.2,<3",
   "torchvision>=0.17,<1",
   "ultralytics>=8.3,<9",
+  "vietocr>=0.3.13,<1.0.0",
+  # vietocr's gdown dependency imports pkg_resources, which setuptools>=81
+  # dropped - pin below that so it's actually importable.
+  "setuptools<81",
   "av>=18.1.0",
 ]
 
 [dependency-groups]
 # Everything here is excluded from the Docker image (Dockerfile runs
-# `uv sync --frozen --no-dev`) - vietocr lives here specifically because it's
-# benchmark_only (models/manifest.json), not an active provider, and must not
-# ship in the runtime image.
+# `uv sync --frozen --no-dev`).
 dev = [
   "pytest>=8.0.0,<9.0.0",
   "ruff>=0.8.0,<1.0.0",
   "mypy>=1.8.0,<2.0.0",
-  "vietocr>=0.3.13,<1.0.0",
-  # vietocr's gdown dependency imports pkg_resources, which setuptools>=81
-  # dropped - pin below that so it's actually importable.
-  "setuptools<81",
-  # benchmark_only, same reasoning as vietocr above: lets
-  # benchmark/runners/lip_sync_runner.py run SyncNet locally, in-process
-  # (no Docker/HTTP microservice), never shipped in the runtime image.
+  # benchmark_only: lets benchmark/runners/lip_sync_runner.py run SyncNet
+  # locally, in-process (no Docker/HTTP microservice), never shipped in the
+  # runtime image.
   "syncnet-python>=0.2.2,<1.0.0",
   "scenedetect[opencv]==0.6.4",
 ]
