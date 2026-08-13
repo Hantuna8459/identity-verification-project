@@ -31,9 +31,13 @@ Ba câu hỏi khác nhau, ba nơi trả lời khác nhau:
 | Provider này implement thế nào, phụ thuộc model/engine nào? | `backend/app/adapters/ekyc_providers.py` |
 
 Một provider **phải đi qua cả ba lớp** mới chạy được: có trong `.env` chain →
-có entry `approval_status` hợp lệ trong `providers[]` → có `ProviderRegistration`
-trong `ekyc_providers.py`. Thiếu một trong ba, `CapabilityRegistry` trả về
-`UNAVAILABLE` — không có provider nào chạy "ngầm" chỉ vì code tồn tại.
+có entry trong `providers[]` với `usage_scope` khớp profile đang chạy → có
+`ProviderRegistration` trong `ekyc_providers.py`. Thiếu một trong ba, hoặc
+`usage_scope` không khớp profile, `CapabilityRegistry` trả về `UNAVAILABLE` —
+không có provider nào chạy "ngầm" chỉ vì code tồn tại. `providers[]` không có
+trường trạng thái phê duyệt nào khác - rủi ro pháp lý/license của model đứng
+sau provider được ghi ở `notes` trong `models[]` và ở
+`docs/model_license_risk_matrix.html`, tách khỏi câu hỏi "có chạy được không".
 
 ## 2. Đổi provider đang active (không đổi code)
 
@@ -134,24 +138,25 @@ Thêm entry vào `models/manifest.json#providers[]`:
 ```json
 {
   "id": "some-vendor-ocr-v1",
-  "approval_status": "evaluation_only",
-  "usage_scope": ["technical_demo"],
-  "approval_reference": "<link tới quyết định/PR duyệt provider này>"
+  "usage_scope": ["technical_demo"]
 }
 ```
 
-Chỉ 4 field. `capability`/`model_id`/`adapter_spec_version` **không** khai báo
+Chỉ 2 field. `capability`/`model_id`/`adapter_spec_version` **không** khai báo
 lại ở đây — `ManifestReader` chưa từng đọc chúng, chúng chỉ lặp lại thứ đã có
 trong `ProviderRegistration` ở `ekyc_providers.py` (mục 3.2). Governance file
-chỉ trả lời một câu: id này có được duyệt chạy, ở profile nào — code catalog
+chỉ trả lời một câu: id này có đăng ký chạy, ở profile nào — code catalog
 trả lời "nó implement thế nào". `id` ở đây phải khớp *chính xác* chuỗi
 `provider_id` đã đăng ký ở mục 3.2 — đây là sợi dây duy nhất nối hai file,
 và `scripts/validate_capability_providers.py` (mục 3.5) kiểm tra đúng chỗ
 này trước khi bạn phải tự dò bằng mắt.
 
-`approval_status` dùng cùng vocabulary với `models[]`: `quarantined` |
-`evaluation_only` | `production_approved` | `rejected`. Nếu provider có model
-artifact riêng (file cần verify sha256/size), thêm entry tương ứng vào
+Không có trường trạng thái phê duyệt nào ở đây - rủi ro pháp lý/license
+(license/provenance của model đứng sau provider) được ghi ở `notes` trong
+`models[]` cho model tương ứng, và ở `docs/model_license_risk_matrix.html`,
+tách hẳn khỏi câu hỏi "có chạy được không". Nếu
+provider có model artifact riêng (file cần verify sha256/size), thêm entry
+tương ứng vào
 `models[]` như một model bình thường, với `id` riêng của nó (không nhất thiết
 trùng `provider_id`) và gán vào `model_id` trong `ProviderRegistration` ở
 code — hai mảng độc lập, provider governance không thay thế model artifact
@@ -161,7 +166,7 @@ Sửa `models/manifest.json` (bản đầy đủ, chỉ nằm trong source repo)
 thường — không cần lo về việc file này bị đưa vào image: `backend/Dockerfile`
 tự động chạy `scripts/models.py --emit-runtime-manifest` để ghi đè bằng bản
 rút gọn (bỏ `source`/`source_repository`/`license`/`purpose`/
-`distribution_permission`/`approval_reference`) trước khi copy sang runtime
+`distribution_permission`/`notes`) trước khi copy sang runtime
 stage. Trường mới thêm vào entry chỉ xuất hiện trong image đã deploy nếu nó
 nằm trong `RUNTIME_MODEL_FIELDS`/`RUNTIME_PROVIDER_FIELDS`
 (`scripts/models.py`) — nếu cần một field mới thực sự phải đọc lúc runtime,
@@ -171,9 +176,9 @@ mặt trong cả manifest rút gọn lẫn `ekyc_providers.py` — xem mục 8 c
 `IMPLEMENTATION_STATUS.md` "MVP feature-complete" về quyết định đổi sang
 opaque id, hiện đang chủ động hoãn.
 
-**Không set `approval_status: production_approved`** trừ khi đã qua benchmark
-và có quyết định nghiệp vụ/pháp lý (M5, chưa tới) — provider mới mặc định là
-`evaluation_only`.
+`usage_scope` là điều kiện vận hành duy nhất — không có trường trạng thái phê
+duyệt riêng để set/đổi ở đây nữa. Rủi ro pháp lý/license cho model đứng sau
+provider ghi ở `notes` của entry tương ứng trong `models[]`.
 
 ### 3.4. Bật làm secondary (chưa đổi primary)
 
@@ -265,7 +270,7 @@ lộ provider/model detail. Các giá trị `invalid`/reason thường gặp:
 | Reason | Nghĩa là gì | Sửa ở đâu |
 |---|---|---|
 | `<provider_id>:not_found` | Provider không có entry trong `providers[]` | Thêm entry vào `manifest.json#providers[]` |
-| `<provider_id>:not_approved_for_profile` | Có entry nhưng `approval_status` không hợp lệ hoặc `usage_scope` không chứa profile đang chạy | Sửa `approval_status`/`usage_scope` trong `providers[]`, hoặc đổi `MODEL_PROFILE` |
+| `<provider_id>:not_in_profile_scope` | Có entry nhưng `usage_scope` không chứa profile đang chạy | Sửa `usage_scope` trong `providers[]`, hoặc đổi `MODEL_PROFILE` |
 | `<model_id>:not_found` | Governance provider pass nhưng model backing không có trong `models[]` | Thêm/khớp `model_id` trong `models[]` |
 | `<model_id>:missing` / `:size` / `:sha256` | Model đã duyệt nhưng artifact trên đĩa thiếu/sai | Tải lại artifact đúng bằng `scripts/models.py`, kiểm tra `MODEL_DIR` |
 | `PROVIDER_NOT_REGISTERED` | Chain trỏ tới `provider_id` không có `ProviderRegistration` trong code | Thêm registration trong `ekyc_providers.py`, hoặc sửa lại `.env` cho đúng id |
@@ -282,8 +287,11 @@ cấu hình.
 
 ## 7. Việc KHÔNG làm khi đổi provider
 
-- Không đặt `approval_status: production_approved` chỉ để capability chạy —
-  đó là quyết định nghiệp vụ/pháp lý (M5+), không phải thao tác kỹ thuật.
+- Đừng thêm lại bất kỳ trường trạng thái phê duyệt nào (`approval_status` hay
+  tương đương) vào `manifest.json`/`Attempt`/adapter spec để "mở khoá"
+  capability - hệ thống không còn khái niệm đó nữa, chỉ có `usage_scope`.
+  Ghi rủi ro pháp lý/license vào `notes` của entry, không phải một enum trạng
+  thái mới.
 - Không hardcode provider_id vào code ngoài `ekyc_providers.py` — mọi lựa chọn
   active provider đi qua `.env`.
 - Không commit `.env`/`env/.env.local` thật — chỉ `.env.example` với giá trị

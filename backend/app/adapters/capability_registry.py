@@ -132,20 +132,16 @@ class CapabilityRegistry:
                 self._instances[provider_id] = instance
             return instance
 
-    def _manifest_ready(
-        self, registration: ProviderRegistration
-    ) -> tuple[bool, str | None, list[str]]:
+    def _manifest_ready(self, registration: ProviderRegistration) -> tuple[bool, list[str]]:
         """Two locks, checked in order: the provider's own governance record
-        (was *this adapter* approved to run at all, in this profile - not
+        (is *this adapter* registered to run at all, in this profile - not
         just "does the code exist"), then its backing model's artifact
         validity (unchanged from before). Being wired in `ekyc_providers.py`
         is necessary but no longer sufficient for a provider to be invoked.
         """
-        governed, governance_status, governance_invalid = self._manifest.provider_ready(
-            registration.provider_id
-        )
+        governed, governance_invalid = self._manifest.provider_ready(registration.provider_id)
         if not governed:
-            return False, governance_status, governance_invalid
+            return False, governance_invalid
         return self._manifest.model_ready(registration.model_id)
 
     @staticmethod
@@ -164,10 +160,7 @@ class CapabilityRegistry:
         duration_ms: int,
         status: AttemptStatus,
         reason_codes: list[str] | None = None,
-        approval_status: str | None = None,
     ) -> Attempt:
-        if approval_status is None:
-            _, approval_status, _ = self._manifest_ready(registration)
         return Attempt(
             provider_id=registration.provider_id,
             provider_role=role,
@@ -176,7 +169,6 @@ class CapabilityRegistry:
             manifest_entry_id=registration.model_id,
             adapter_spec_version=registration.adapter_spec_version,
             config_version=registration.config_version,
-            approval_status=approval_status,
             started_at=started_at,
             duration_ms=duration_ms,
             status=status,
@@ -193,7 +185,6 @@ class CapabilityRegistry:
             manifest_entry_id=None,
             adapter_spec_version="unknown",
             config_version="unknown",
-            approval_status=None,
             started_at=datetime.now(UTC),
             duration_ms=0,
             status="UNAVAILABLE",
@@ -236,7 +227,7 @@ class CapabilityRegistry:
                 )
                 continue
 
-            ready, approval_status, invalid_reasons = self._manifest_ready(registration)
+            ready, invalid_reasons = self._manifest_ready(registration)
             if not ready:
                 attempts.append(
                     self._build_attempt(
@@ -246,7 +237,6 @@ class CapabilityRegistry:
                         duration_ms=0,
                         status="UNAVAILABLE",
                         reason_codes=invalid_reasons or ["REQUIRED_MODEL_ARTIFACT_INVALID"],
-                        approval_status=approval_status,
                     )
                 )
                 continue
@@ -333,7 +323,7 @@ class CapabilityRegistry:
         registration = self._registrations.get(chain.primary)
         if registration is None:
             raise CapabilityUnavailableError(capability, "PROVIDER_NOT_REGISTERED")
-        ready, _, invalid_reasons = self._manifest_ready(registration)
+        ready, invalid_reasons = self._manifest_ready(registration)
         if not ready:
             reason = invalid_reasons[0] if invalid_reasons else "REQUIRED_MODEL_ARTIFACT_INVALID"
             raise CapabilityUnavailableError(capability, reason)
@@ -353,16 +343,14 @@ class CapabilityRegistry:
                     roles[role] = {
                         "provider_id": provider_id,
                         "ready": False,
-                        "approval_status": None,
                         "invalid": ["PROVIDER_NOT_REGISTERED"],
                     }
                     continue
-                ready, approval_status, invalid_reasons = self._manifest_ready(registration)
+                ready, invalid_reasons = self._manifest_ready(registration)
                 roles[role] = {
                     "provider_id": provider_id,
                     "model_id": registration.model_id,
                     "ready": ready,
-                    "approval_status": approval_status,
                     "invalid": invalid_reasons,
                 }
             result[capability] = {"registered": True, "status": "REGISTERED", **roles}

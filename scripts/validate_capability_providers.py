@@ -81,10 +81,10 @@ def main() -> int:
     #    forgot the manifest entry" before you ever touch .env.
     print("-- Code-registered providers --")
     for provider_id, registration in sorted(registrations.items()):
-        ready, approval_status, invalid = registry.manifest.provider_ready(provider_id)
+        ready, invalid = registry.manifest.provider_ready(provider_id)
         if ready:
             capability = registration.capability
-            print(f"  OK    {provider_id:35s} capability={capability:20s} {approval_status}")
+            print(f"  OK    {provider_id:35s} capability={capability:20s}")
         else:
             governance_failures.append(f"{provider_id}: {', '.join(invalid)}")
             print(f"  FAIL  {provider_id:35s} capability={registration.capability:20s} {invalid}")

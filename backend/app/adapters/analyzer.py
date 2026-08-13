@@ -49,7 +49,6 @@ class OfflineModelAnalyzer:
                 "ready": not self._require_models,
                 "artifact_ready": False,
                 "pipeline_ready": False,
-                "production_ready": False,
                 "profile": self._profile,
                 "manifest": False,
                 "models": [],
@@ -57,20 +56,13 @@ class OfflineModelAnalyzer:
                 "capabilities": capabilities,
             }
         artifact_ready = summary.artifact_ready
-        production_ready = (
-            bool(summary.model_ids)
-            and artifact_ready
-            and all(value == "production_approved" for value in summary.approval_statuses.values())
-        )
         return {
             "ready": artifact_ready if self._require_models else True,
             "artifact_ready": artifact_ready,
             "pipeline_ready": artifact_ready,
-            "production_ready": production_ready,
             "profile": self._profile,
             "manifest": True,
             "models": summary.model_ids,
-            "approval_statuses": summary.approval_statuses,
             "invalid": summary.invalid,
             "capabilities": capabilities,
         }

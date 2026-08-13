@@ -28,13 +28,15 @@ Các mục tiêu bắt buộc gồm:
 ## 2. Nguyên tắc thực thi
 
 1. Kết quả AI của technical demo không tự động approve/reject.
-2. Fallback chỉ dùng provider được phép trong cùng profile; không fallback sang
-   model `quarantined`, `rejected` hoặc ngoài usage scope.
+2. Fallback chỉ dùng provider có governance entry và `usage_scope` khớp profile
+   đang chạy; provider ngoài usage scope không fallback được.
 3. Input kém chất lượng đi `RECAPTURE_DOCUMENT`, không kích hoạt model fallback.
 4. Đổi model, preprocessing, aggregation hoặc device profile làm threshold cũ mất
    hiệu lực cho đến khi benchmark lại.
-5. Dataset tải được công khai không mặc nhiên được phép dùng. Dataset phải có
-   provenance, license, checksum, usage scope và approval status riêng.
+5. Dataset dùng trong benchmark phải có record provenance/license/checksum/usage
+   scope trong `benchmark/datasets/registry.json`, và rủi ro pháp lý đã biết phải
+   được ghi vào `notes` của record đó - đây là nơi lưu mối lo pháp lý, không phải
+   một quy trình phê duyệt chặn việc dùng dataset.
 6. Dữ liệu thật không được commit, đưa vào fixture, log, screenshot, Docker image
    hoặc artifact CI. Dữ liệu benchmark và report nhạy cảm nằm ngoài Git.
 7. Không đưa mọi literal vào `.env`: secret, environment config, versioned policy
@@ -174,7 +176,8 @@ upload thay thế thất bại.
 - report chứa model/provider/config/dataset/device version, sample count, exclusion,
   latency, resource usage và confidence interval;
 - smoke subset synthetic cho CI; full dataset và report nhạy cảm chạy ngoài CI/Git;
-- dataset downloader không nằm trong runtime path và không tự tải dataset chưa duyệt.
+- dataset downloader không nằm trong runtime path và không tự tải dataset ngoài
+  những gì đã có record trong `benchmark/datasets/registry.json`.
 
 **Dataset candidate, chưa phải approval:**
 
@@ -201,7 +204,9 @@ upload thay thế thất bại.
 - system: failure rate, p50/p95 latency và peak memory.
 
 **Tiêu chí hoàn thành:** cùng một config/dataset checksum sinh report tái lập được;
-test split không được dùng để chọn threshold; dataset chưa duyệt bị fail closed.
+test split không được dùng để chọn threshold; mọi dataset dùng trong benchmark có
+record trong registry (source/license/sensitivity/notes), kể cả khi rủi ro pháp lý
+chưa được review đầy đủ - rủi ro đó được ghi vào `notes`, không phải lý do chặn.
 
 ### M5 — Seed threshold và calibration
 

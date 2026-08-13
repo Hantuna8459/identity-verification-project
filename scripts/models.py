@@ -16,12 +16,6 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 CHUNK_SIZE = 1024 * 1024
-ALLOWED_APPROVAL_STATUSES = {
-    "quarantined",
-    "evaluation_only",
-    "production_approved",
-    "rejected",
-}
 
 
 def digest(path: Path) -> str:
@@ -114,9 +108,9 @@ def _entry_artifacts(entry: dict[str, Any]) -> list[dict[str, Any]]:
     return [entry]
 
 
-RUNTIME_MODEL_FIELDS = {"id", "approval_status", "usage_scope", "required", "revision"}
+RUNTIME_MODEL_FIELDS = {"id", "usage_scope", "required", "revision"}
 RUNTIME_ARTIFACT_FIELDS = {"path", "size_bytes", "sha256"}
-RUNTIME_PROVIDER_FIELDS = {"id", "approval_status", "usage_scope"}
+RUNTIME_PROVIDER_FIELDS = {"id", "usage_scope"}
 
 
 def _lean_artifact(artifact: dict[str, Any]) -> dict[str, Any]:
@@ -138,7 +132,7 @@ def _lean_provider_entry(entry: dict[str, Any]) -> dict[str, Any]:
 
 def emit_runtime_manifest(manifest: dict[str, Any], output_path: Path) -> None:
     """Strip governance-only fields (source, source_repository, license,
-    purpose, approval_reference, distribution_permission, archive/url/
+    purpose, notes, distribution_permission, archive/url/
     source_path, ...) that the running application never reads. Only what
     `ManifestReader`/`--verify-only` actually consume ships in the deployed
     image - see docs/CAPABILITY_PROVIDER_GUIDE.md for why. Note: the
@@ -155,11 +149,6 @@ def emit_runtime_manifest(manifest: dict[str, Any], output_path: Path) -> None:
 
 
 def _entry_enabled(entry: dict[str, Any], profile: str) -> bool:
-    status = str(entry.get("approval_status", "quarantined"))
-    if status not in ALLOWED_APPROVAL_STATUSES:
-        raise RuntimeError(f"{entry.get('id', 'unknown')}: invalid approval_status {status!r}")
-    if status in {"quarantined", "rejected"}:
-        return False
     scopes = entry.get("usage_scope", [])
     return profile in scopes or "all" in scopes
 
@@ -327,7 +316,7 @@ def main() -> int:
             failures.append(str(exc))
             continue
         if not enabled:
-            print(f"SKIP  {model_id} ({entry.get('approval_status', 'quarantined')})")
+            print(f"SKIP  {model_id} (not in profile {args.profile!r} usage_scope)")
             if selected:
                 failures.append(f"{model_id}: not enabled for profile {args.profile}")
             continue

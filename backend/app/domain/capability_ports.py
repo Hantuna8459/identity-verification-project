@@ -48,7 +48,6 @@ class Attempt:
     manifest_entry_id: str | None
     adapter_spec_version: str
     config_version: str
-    approval_status: str | None
     started_at: datetime
     duration_ms: int
     status: AttemptStatus
@@ -65,7 +64,6 @@ class Attempt:
             "config_version": self.config_version,
             "threshold_profile": "none",
             "threshold_version": None,
-            "approval_status": self.approval_status,
             "started_at": self.started_at.isoformat(),
             "duration_ms": self.duration_ms,
             "status": self.status,
@@ -167,6 +165,11 @@ class VoiceChallengeRequest:
 class LipSyncRequest:
     media_path: Path
     content_type: str
+
+
+@dataclass(frozen=True)
+class DocumentQualityRequest:
+    image: np.ndarray
 
 
 @dataclass(frozen=True)
@@ -279,6 +282,18 @@ class LipSyncResult:
     verdict: str | None
     confidence: float | None
     manipulation_probability: float | None
+
+
+@dataclass(frozen=True)
+class DocumentQualityResult:
+    status: str
+    engine: str
+    blur_score: float
+    glare_ratio: float
+    brightness_mean: float
+    defect_flags: list[str]
+    reason_codes: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

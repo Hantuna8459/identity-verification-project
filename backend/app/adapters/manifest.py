@@ -10,7 +10,6 @@ from typing import Any
 @dataclass(frozen=True)
 class ManifestModelStatus:
     model_id: str
-    approval_status: str
     revision: str | None
     in_scope: bool
     required: bool
@@ -25,7 +24,6 @@ class ManifestModelStatus:
 class ManifestSummary:
     manifest: bool
     model_ids: list[str]
-    approval_statuses: dict[str, str]
     invalid: list[str]
 
     @property
@@ -36,12 +34,17 @@ class ManifestSummary:
 @dataclass(frozen=True)
 class ProviderGovernanceStatus:
     provider_id: str
-    approval_status: str
     in_scope: bool
 
 
 class ManifestReader:
-    """Single source of truth for manifest-driven approval/artifact status.
+    """Single source of truth for manifest-driven scope/artifact status.
+
+    Gating is registration + `usage_scope` matching the active profile,
+    nothing else. License/legal-risk classification for a model/provider
+    lives in its manifest entry's `notes` field and in
+    `docs/model_license_risk_matrix.html`, not in anything this class reads
+    or returns.
 
     Shared by OfflineModelAnalyzer.readiness() (aggregate, backward-compatible
     shape) and CapabilityRegistry.readiness()/gating (per-model, per-provider).
@@ -79,10 +82,8 @@ class ManifestReader:
         self._raw = json.loads(manifest_path.read_text(encoding="utf-8"))
         return self._raw
 
-    def _in_scope(self, approval_status: str, scopes: list[str]) -> bool:
-        return approval_status in {"evaluation_only", "production_approved"} and (
-            self._profile in scopes or "all" in scopes
-        )
+    def _in_scope(self, scopes: list[str]) -> bool:
+        return self._profile in scopes or "all" in scopes
 
     def _load(self) -> dict[str, ManifestModelStatus]:
         if self._cache is not None:
@@ -91,8 +92,7 @@ class ManifestReader:
         data = self._read_manifest()
         for entry in data.get("models", []):
             model_id = str(entry.get("id", "unknown"))
-            approval_status = str(entry.get("approval_status", "quarantined"))
-            in_scope = self._in_scope(approval_status, entry.get("usage_scope", []))
+            in_scope = self._in_scope(entry.get("usage_scope", []))
             required = bool(entry.get("required"))
             invalid: list[str] = []
             if in_scope and required:
@@ -108,7 +108,6 @@ class ManifestReader:
             revision = entry.get("revision")
             statuses[model_id] = ManifestModelStatus(
                 model_id=model_id,
-                approval_status=approval_status,
                 revision=str(revision) if revision is not None else None,
                 in_scope=in_scope,
                 required=required,
@@ -123,30 +122,26 @@ class ManifestReader:
         invalid: list[str] = []
         for status in in_scope.values():
             invalid.extend(status.invalid)
-        approval_statuses = {
-            model_id: status.approval_status for model_id, status in in_scope.items()
-        }
         return ManifestSummary(
             manifest=self._manifest_present,
             model_ids=list(in_scope.keys()),
-            approval_statuses=approval_statuses,
             invalid=invalid,
         )
 
-    def model_ready(self, model_id: str | None) -> tuple[bool, str | None, list[str]]:
-        """Return (ready, approval_status, invalid_reasons) for a provider's backing model.
+    def model_ready(self, model_id: str | None) -> tuple[bool, list[str]]:
+        """Return (ready, invalid_reasons) for a provider's backing model.
 
         `model_id=None` means the provider has no backing model artifact (a
         deterministic rule/heuristic) and is therefore always ready.
         """
         if model_id is None:
-            return True, "not_applicable", []
+            return True, []
         status = self._load().get(model_id)
         if status is None:
-            return False, None, [f"{model_id}:not_found"]
+            return False, [f"{model_id}:not_found"]
         if not status.in_scope:
-            return False, status.approval_status, [f"{model_id}:not_approved_for_profile"]
-        return status.artifact_ready, status.approval_status, list(status.invalid)
+            return False, [f"{model_id}:not_in_profile_scope"]
+        return status.artifact_ready, list(status.invalid)
 
     def model_revision(self, model_id: str | None) -> str | None:
         if model_id is None:
@@ -161,27 +156,26 @@ class ManifestReader:
         data = self._read_manifest()
         for entry in data.get("providers", []):
             provider_id = str(entry.get("id", "unknown"))
-            approval_status = str(entry.get("approval_status", "quarantined"))
-            in_scope = self._in_scope(approval_status, entry.get("usage_scope", []))
+            in_scope = self._in_scope(entry.get("usage_scope", []))
             statuses[provider_id] = ProviderGovernanceStatus(
                 provider_id=provider_id,
-                approval_status=approval_status,
                 in_scope=in_scope,
             )
         self._provider_cache = statuses
         return statuses
 
-    def provider_ready(self, provider_id: str) -> tuple[bool, str | None, list[str]]:
-        """Return (ready, approval_status, invalid_reasons) for a provider's
-        own governance record - separate from whether its backing model's
-        artifact is valid (see `model_ready`). A provider must be approved
-        here *and* have a ready model (if any) before CapabilityRegistry will
-        invoke it: code registration in `ekyc_providers.py` alone is not
-        enough, matching how `models[]` already gates a model's use.
+    def provider_ready(self, provider_id: str) -> tuple[bool, list[str]]:
+        """Return (ready, invalid_reasons) for a provider's own governance
+        record - separate from whether its backing model's artifact is valid
+        (see `model_ready`). A provider must be registered here with
+        `usage_scope` covering the active profile, and have a ready model
+        (if any), before CapabilityRegistry will invoke it: code
+        registration in `ekyc_providers.py` alone is not enough, matching how
+        `models[]` already gates a model's use.
         """
         status = self._load_providers().get(provider_id)
         if status is None:
-            return False, None, [f"{provider_id}:not_found"]
+            return False, [f"{provider_id}:not_found"]
         if not status.in_scope:
-            return False, status.approval_status, [f"{provider_id}:not_approved_for_profile"]
-        return True, status.approval_status, []
+            return False, [f"{provider_id}:not_in_profile_scope"]
+        return True, []

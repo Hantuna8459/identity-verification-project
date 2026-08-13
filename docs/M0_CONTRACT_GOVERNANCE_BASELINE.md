@@ -90,7 +90,6 @@ Mỗi capability result tối thiểu:
       "config_version": "string",
       "threshold_profile": "technical-demo-v1|none",
       "threshold_version": "string|null",
-      "approval_status": "quarantined|evaluation_only|production_approved|rejected|null",
       "started_at": "RFC3339",
       "duration_ms": 0,
       "status": "COMPLETED|TIMEOUT|INVALID_OUTPUT|UNAVAILABLE|FAILED",
@@ -110,6 +109,12 @@ Rules:
 - Threshold `evaluation_only` phải được ghi rõ; production threshold chưa được mặc định.
 - Raw OCR, MRZ, transcript, embedding, raw evidence path/key hoặc signed URL không
   thuộc analysis response mặc định.
+- Điều kiện để một attempt chạy chỉ có một: provider có governance entry trong
+  `manifest.json#providers[]` và `usage_scope` khớp profile đang chạy. Không có
+  trường trạng thái phê duyệt (approval status) nào trong contract này hay
+  trong manifest - rủi ro pháp lý/license của một provider/model được ghi ở
+  `notes` trong `manifest.json` và ở `docs/model_license_risk_matrix.html`,
+  ngoài contract này.
 
 ## 4. Provider/model adapter spec
 
@@ -152,8 +157,7 @@ Adapter spec tối thiểu:
   "fallback_eligibility": "technical_failure_only|not_allowed",
   "benchmark_requirements": "dataset/split/metric notes",
   "known_limitations": "string",
-  "license_scope": "string",
-  "approval_status": "quarantined|evaluation_only|production_approved|rejected"
+  "license_scope": "string"
 }
 ```
 
@@ -165,6 +169,10 @@ Rules:
   mất hiệu lực cho capability bị ảnh hưởng.
 - Adapter không được tự chọn model ngoài composition/config/profile đã cho phép.
 - Adapter không được tự download model hoặc artifact runtime.
+- Điều kiện để adapter chạy chỉ là `usage_scope` khớp profile đang chạy - không
+  có trường trạng thái phê duyệt riêng nào ở đây. Rủi ro pháp lý/license của
+  model đứng sau adapter (`license_scope` ở trên) được ghi chi tiết hơn ở
+  `notes` trong `manifest.json` và ở `docs/model_license_risk_matrix.html`.
 
 ## 5. ADR M0
 
@@ -209,8 +217,12 @@ Consequence: M5 chỉ tạo threshold `evaluation_only`; không suy ra productio
 
 ## 6. Dataset registry schema
 
-M0 chưa chọn dataset. Mọi dataset candidate phải có record trước khi download hoặc
-dùng trong benchmark ngoài smoke synthetic.
+Mọi dataset dùng trong benchmark (ngoài smoke synthetic) phải có record trong
+`benchmark/datasets/registry.json`. Record ghi lại provenance/license/sensitivity
+cho mục đích tra cứu rủi ro pháp lý - nó không phải một cổng phê duyệt.
+`get_dataset()` (`backend/benchmark/dataset_registry.py`) chỉ còn hai điều kiện
+thật sự: dataset có tồn tại trong registry, và nó có đăng ký cho đúng capability
+đang benchmark. Không có trạng thái approval nào chặn việc dùng dataset.
 
 Dataset record tối thiểu:
 
@@ -231,22 +243,19 @@ Dataset record tối thiểu:
   "storage_location": "outside_git|not_downloaded|tbd",
   "checksum_sha256": "string|null",
   "split_policy": "identity_document_device_separated|synthetic_smoke|tbd",
-  "approval_status": "candidate|under_review|approved_for_evaluation|rejected|expired",
-  "approval_owner": "user",
-  "approval_reference": "string|null",
-  "approved_at": "RFC3339|null",
-  "expires_at": "RFC3339|null",
   "notes": "string"
 }
 ```
 
 Process:
 
-1. Tạo record `candidate` với source/license/scope rõ nhất có thể.
-2. Review license, terms, sensitivity, distribution permission và storage location.
-3. Chỉ đổi sang `approved_for_evaluation` khi owner chấp thuận rõ scope.
-4. Downloader/benchmark phải fail closed nếu dataset chưa approved cho scope tương ứng.
-5. Full dataset, license evidence nhạy cảm và benchmark report nhạy cảm nằm ngoài Git.
+1. Tạo record với source/license/scope rõ nhất có thể trước khi dùng dataset.
+2. Ghi rủi ro pháp lý/license đã biết (nếu có) vào `notes` - đây là nơi lưu mối lo
+   pháp lý, không phải lý do để trì hoãn dùng dataset.
+3. Giữ dataset chỉ được đọc qua runner của đúng capability nó phục vụ (không dùng
+   chéo capability ngoài `capabilities[]` đã khai báo), để đổi/gỡ dataset sau này
+   không ảnh hưởng runner khác - cùng nguyên tắc swap-được của ADR-M0-001.
+4. Full dataset, license evidence nhạy cảm và benchmark report nhạy cảm nằm ngoài Git.
 
 ## 7. Hard-code inventory baseline
 
