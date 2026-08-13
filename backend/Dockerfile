@@ -76,7 +76,7 @@ ENV PATH=/app/backend/.venv/bin:$PATH \
     EVIDENCE_DIR=/app/data/evidence
 WORKDIR /app/backend
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl ffmpeg libgl1 libglib2.0-0 libgomp1 \
+    && apt-get install -y --no-install-recommends curl libgl1 libglib2.0-0 libgomp1 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 10001 --create-home vid
 COPY --from=builder /app/backend/.venv ./.venv

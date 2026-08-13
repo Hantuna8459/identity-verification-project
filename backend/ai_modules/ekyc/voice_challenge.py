@@ -2,12 +2,10 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
-import tempfile
-import wave
 from pathlib import Path
 from typing import Any
 
+import av
 from vosk import KaldiRecognizer, Model, SetLogLevel
 
 
@@ -48,41 +46,20 @@ class VoiceVerifier:
         return "".join(cls._NUMBER_WORDS.get(word, "") for word in words)
 
     def verify(self, media_path: Path, challenge: str) -> dict[str, Any]:
-        wav_path: Path | None = None
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as stream:
-                wav_path = Path(stream.name)
-            subprocess.run(
-                [
-                    "ffmpeg",
-                    "-nostdin",
-                    "-loglevel",
-                    "error",
-                    "-y",
-                    "-i",
-                    str(media_path),
-                    "-ac",
-                    "1",
-                    "-ar",
-                    "16000",
-                    "-f",
-                    "wav",
-                    str(wav_path),
-                ],
-                check=True,
-                timeout=120,
-            )
-            recognizer = KaldiRecognizer(self._model, 16000)
-            text_parts: list[str] = []
-            with wave.open(str(wav_path), "rb") as audio:
-                while chunk := audio.readframes(4000):
-                    if recognizer.AcceptWaveform(chunk):
+        recognizer = KaldiRecognizer(self._model, 16000)
+        text_parts: list[str] = []
+        resampler = av.AudioResampler(format="s16", layout="mono", rate=16000)
+        with av.open(str(media_path)) as container:
+            stream = container.streams.audio[0]
+            for frame in container.decode(stream):
+                for resampled in resampler.resample(frame):
+                    if recognizer.AcceptWaveform(resampled.to_ndarray().tobytes()):
                         text_parts.append(json.loads(recognizer.Result()).get("text", ""))
-                text_parts.append(json.loads(recognizer.FinalResult()).get("text", ""))
-            transcript = " ".join(text_parts)
-        finally:
-            if wav_path is not None:
-                wav_path.unlink(missing_ok=True)
+        for resampled in resampler.resample(None):
+            if recognizer.AcceptWaveform(resampled.to_ndarray().tobytes()):
+                text_parts.append(json.loads(recognizer.Result()).get("text", ""))
+        text_parts.append(json.loads(recognizer.FinalResult()).get("text", ""))
+        transcript = " ".join(text_parts)
         expected, actual = self.digits(challenge), self.digits(transcript)
         distance = self._edit_distance(expected, actual)
         similarity = 1.0 - distance / max(len(expected), len(actual), 1)
