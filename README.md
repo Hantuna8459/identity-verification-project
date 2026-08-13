@@ -97,20 +97,28 @@ readiness kiểm tra tồn tại, size cùng SHA-256 của toàn bộ artifact r
 
 Profile `technical_demo` hiện bật:
 
-- CCCD YOLO11 layout + RapidOCR PP-OCRv6 small;
+- `document_ocr`: vietocr VGG-Transformer (primary, nhận diện) ghép với detector
+  của RapidOCR PP-OCRv6 small, fallback sang RapidOCR full pipeline (detect+cls+rec)
+  khi vietocr lỗi kỹ thuật;
+- CCCD YOLO11 layout dùng RapidOCR cho OCR theo vùng (`document_layout`, chưa đổi
+  sang vietocr);
 - passport TD3 dùng RapidOCR và parser/check digit ICAO trung lập quốc gia;
 - InsightFace `buffalo_l` qua SCRFD/ArcFace ONNX trực tiếp;
 - MiniFASNetV2 và Deep-Fake-Detector-v2 ONNX;
 - Vosk Vietnamese small 0.4 cho voice challenge;
 - SyncNetV2/S3FD qua service lip-sync.
 
-`vietocr_vgg_transformer.pth` có entry/checksum trong manifest, `approval_status`
-`evaluation_only` với `usage_scope: [benchmark_only]` (quyết định owner 2026-08-11,
-license vẫn `WEIGHT_LICENSE_REVIEW_REQUIRED` - chưa review) - vẫn không được
-downloader/Docker build tải cho profile `technical_demo` vì `usage_scope` không khớp
-profile đó, chỉ dùng được cho benchmark nội bộ ngoài runtime path. InsightFace
-`buffalo_l` chỉ là `evaluation_only` cho demo nội bộ, không được hiểu là đã có quyền
-phân phối hoặc dùng production.
+`vietocr_vgg_transformer.pth` có entry/checksum trong manifest, `usage_scope:
+[technical_demo]` (owner đã relax quyết định benchmark_only 2026-08-11 và
+promote lên primary `document_ocr` cho `technical_demo`, 2026-08-13) - license
+vẫn `WEIGHT_LICENSE_REVIEW_REQUIRED`, chưa có review pháp lý chính thức; owner
+nhận rủi ro đó để đổi provider trước khi review xong (xem `notes` của entry
+này trong `models/manifest.json`, và `docs/model_license_risk_matrix.html`
+cho đánh giá rủi ro đầy đủ - cần re-review trước khi mở scope sang
+pilot/production). Downloader/Docker build giờ tải nó cho profile
+`technical_demo` như mọi model required khác - không còn giới hạn ở benchmark
+nội bộ ngoài runtime path. InsightFace `buffalo_l` chỉ dùng cho demo nội bộ,
+không được hiểu là đã có quyền phân phối hoặc dùng production.
 
 Khi manifest thay đổi, cần build lại image và recreate container bằng đúng env
 file; running container không tự nhận manifest mới:
@@ -122,7 +130,7 @@ docker compose --env-file .env up -d --force-recreate backend purge lipsync
 
 Model có trong manifest hoặc load thành công chỉ chứng minh integrity/kỹ thuật,
 không đồng nghĩa model đã được phê duyệt cho distribution, pilot hoặc production.
-Xem policy `approval_status` và `usage_scope` trong `AGENTS.md`.
+Xem policy `usage_scope` và ghi chú rủi ro pháp lý/license trong `AGENTS.md`.
 
 ## Kết quả inference technical demo
 

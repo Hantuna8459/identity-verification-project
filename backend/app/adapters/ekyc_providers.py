@@ -8,7 +8,8 @@ import numpy as np
 from ai_modules.ekyc.active_liveness import inspect_head_turn_sequence
 from ai_modules.ekyc.camera_injection import inspect_camera_injection
 from ai_modules.ekyc.document_layout import CccdLayoutOcr
-from ai_modules.ekyc.document_ocr import LocalOcr
+from ai_modules.ekyc.document_ocr import LocalOcr, VietOcr
+from ai_modules.ekyc.document_quality import inspect_document_quality
 from ai_modules.ekyc.face_detection import ScrfdFaceDetector
 from ai_modules.ekyc.face_embedding import ArcFaceEmbedder
 from ai_modules.ekyc.media import call_lipsync
@@ -33,6 +34,8 @@ from app.domain.capability_ports import (
     DocumentLayoutResult,
     DocumentOcrRequest,
     DocumentOcrResult,
+    DocumentQualityRequest,
+    DocumentQualityResult,
     FaceDetectionRequest,
     FaceDetectionResult,
     FaceEmbeddingRequest,
@@ -62,6 +65,25 @@ class RapidOcrDocumentProvider:
     adapter_spec_version = ADAPTER_SPEC_VERSION
 
     def __init__(self, engine: LocalOcr) -> None:
+        self._engine = engine
+
+    def run(self, request: DocumentOcrRequest) -> DocumentOcrResult:
+        raw = self._engine.inspect_document(request.payload)
+        return DocumentOcrResult(
+            status=raw["status"],
+            engine=raw["engine"],
+            line_count=raw["line_count"],
+            mean_confidence=raw["mean_confidence"],
+            lines=raw["lines"],
+        )
+
+
+class VietOcrDocumentProvider:
+    provider_id = "vietocr-vgg-transformer"
+    model_id: str | None = "vietocr-vgg-transformer"
+    adapter_spec_version = ADAPTER_SPEC_VERSION
+
+    def __init__(self, engine: VietOcr) -> None:
         self._engine = engine
 
     def run(self, request: DocumentOcrRequest) -> DocumentOcrResult:
@@ -274,6 +296,25 @@ class HttpLipSyncProvider:
         )
 
 
+class HeuristicDocumentQualityProvider:
+    provider_id = "heuristic-document-quality-v1"
+    model_id: str | None = None
+    adapter_spec_version = ADAPTER_SPEC_VERSION
+
+    def run(self, request: DocumentQualityRequest) -> DocumentQualityResult:
+        raw = inspect_document_quality(request.image)
+        return DocumentQualityResult(
+            status=raw["status"],
+            engine=raw["engine"],
+            blur_score=raw["blur_score"],
+            glare_ratio=raw["glare_ratio"],
+            brightness_mean=raw["brightness_mean"],
+            defect_flags=raw["defect_flags"],
+            reason_codes=raw["reason_codes"],
+            warnings=raw["warnings"],
+        )
+
+
 class HeuristicReplayProvider:
     provider_id = "heuristic-replay-v1"
     model_id: str | None = None
@@ -354,6 +395,11 @@ def build_capability_registry(settings: Settings) -> CapabilityRegistry:
             _engines["ocr"] = LocalOcr(settings.model_dir)
         return _engines["ocr"]
 
+    def shared_vietocr() -> VietOcr:
+        if "vietocr" not in _engines:
+            _engines["vietocr"] = VietOcr(settings.model_dir, shared_ocr())
+        return _engines["vietocr"]
+
     def embedding_provider() -> ArcFaceEmbeddingProvider:
         if "embedding_provider" not in _engines:
             _engines["embedding_provider"] = ArcFaceEmbeddingProvider(
@@ -367,6 +413,14 @@ def build_capability_registry(settings: Settings) -> CapabilityRegistry:
             capability="document_ocr",
             factory=lambda: RapidOcrDocumentProvider(shared_ocr()),
             model_id="rapidocr-ppocrv6-small",
+            adapter_spec_version=ADAPTER_SPEC_VERSION,
+            config_version=CAPABILITY_PROVIDER_CONFIG_VERSION,
+        ),
+        "vietocr-vgg-transformer": ProviderRegistration(
+            provider_id="vietocr-vgg-transformer",
+            capability="document_ocr",
+            factory=lambda: VietOcrDocumentProvider(shared_vietocr()),
+            model_id="vietocr-vgg-transformer",
             adapter_spec_version=ADAPTER_SPEC_VERSION,
             config_version=CAPABILITY_PROVIDER_CONFIG_VERSION,
         ),
@@ -441,6 +495,14 @@ def build_capability_registry(settings: Settings) -> CapabilityRegistry:
                 VoiceVerifier(settings.model_dir, settings.ai_device)
             ),
             model_id="vosk-small-vn-0.4",
+            adapter_spec_version=ADAPTER_SPEC_VERSION,
+            config_version=CAPABILITY_PROVIDER_CONFIG_VERSION,
+        ),
+        "heuristic-document-quality-v1": ProviderRegistration(
+            provider_id="heuristic-document-quality-v1",
+            capability="document_quality",
+            factory=HeuristicDocumentQualityProvider,
+            model_id=None,
             adapter_spec_version=ADAPTER_SPEC_VERSION,
             config_version=CAPABILITY_PROVIDER_CONFIG_VERSION,
         ),

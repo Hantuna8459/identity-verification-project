@@ -77,20 +77,36 @@ pipeline has an approved decision threshold yet.
 
 ## Usage
 
+Run from `backend/` (that's where the `fieldcheck` package and its `.venv`
+live), via `uv run` so the right interpreter/deps are picked up - plain
+`python3 -m fieldcheck.cli ...` will fail with `ModuleNotFoundError` unless
+you've activated `backend/.venv` yourself:
+
 ```
-python -m fieldcheck.cli adhoc --case backend/fieldcheck/local_cases/my-test \
-    [--model-dir PATH] [--profile technical_demo] \
+cd backend
+uv run python -m fieldcheck.cli adhoc --case fieldcheck/local_cases/my-test \
+    [--model-dir ../models] [--profile technical_demo] \
     [--document-type CCCD] [--voice-challenge "1 2 3 4 5 6"] \
     [--out PATH] [--json]
 
-python -m fieldcheck.cli batch --cases-root backend/fieldcheck/local_cases \
-    [--model-dir PATH] [--profile technical_demo] [--pattern 'my-*'] \
+uv run python -m fieldcheck.cli batch --cases-root fieldcheck/local_cases \
+    [--model-dir ../models] [--profile technical_demo] [--pattern 'my-*'] \
     [--fail-fast] [--out-dir PATH] [--save-per-case] [--force]
 ```
 
 Both subcommands print `.readiness()` first, so you know upfront which
 capabilities will actually run vs. report `UNAVAILABLE` for this
-`--model-dir`/`--profile`.
+`--model-dir`/`--profile`. To see *just* readiness with no case evidence at
+all, point `--cases-root` at the (already-existing, empty) `local_cases/`
+dir itself:
+
+```
+uv run python -m fieldcheck.cli batch --model-dir ../models --cases-root fieldcheck/local_cases
+```
+
+(don't point `--cases-root` at a path that doesn't exist yet - `batch`
+doesn't catch that particular failure cleanly and will dump a traceback
+after the readiness table instead of a friendly error.)
 
 `batch`'s summary report walks every result's normalized contract shape
 generically (any dict carrying an `execution_status` key becomes a "signal"),

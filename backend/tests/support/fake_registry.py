@@ -164,7 +164,6 @@ def build_fake_registry(
             "capability": registration.capability,
             "model_id": registration.model_id,
             "adapter_spec_version": registration.adapter_spec_version,
-            "approval_status": "evaluation_only",
             "usage_scope": ["technical_demo"],
         }
         for registration in registrations.values()

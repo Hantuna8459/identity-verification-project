@@ -55,7 +55,6 @@ def test_analyzer_readiness_checks_every_grouped_artifact(tmp_path: Path) -> Non
             {
                 "id": "group",
                 "required": True,
-                "approval_status": "evaluation_only",
                 "usage_scope": ["technical_demo"],
                 "artifacts": [
                     {
@@ -73,9 +72,8 @@ def test_analyzer_readiness_checks_every_grouped_artifact(tmp_path: Path) -> Non
                 ],
             },
             {
-                "id": "quarantined",
+                "id": "out-of-scope",
                 "required": True,
-                "approval_status": "quarantined",
                 "usage_scope": [],
                 "path": "ignored.bin",
                 "size_bytes": 1,
@@ -124,10 +122,9 @@ def test_runtime_manifest_strips_governance_only_fields(tmp_path: Path) -> None:
                 "license": "PROPRIETARY",
                 "revision": "v1",
                 "required": True,
-                "approval_status": "evaluation_only",
                 "usage_scope": ["technical_demo"],
                 "distribution_permission": "internal-demo-only",
-                "approval_reference": "AGENTS.md#x",
+                "notes": "AGENTS.md#x",
                 "artifacts": [
                     {
                         "source_path": "vendor/weights.onnx",
@@ -144,9 +141,7 @@ def test_runtime_manifest_strips_governance_only_fields(tmp_path: Path) -> None:
                 "capability": "passive_liveness",
                 "model_id": "some-model",
                 "adapter_spec_version": "ekyc-provider-adapter/1",
-                "approval_status": "evaluation_only",
                 "usage_scope": ["technical_demo"],
-                "approval_reference": "AGENTS.md#x",
             }
         ],
     }
@@ -158,7 +153,6 @@ def test_runtime_manifest_strips_governance_only_fields(tmp_path: Path) -> None:
     model = lean["models"][0]
     assert model["id"] == "some-model"
     assert model["required"] is True
-    assert model["approval_status"] == "evaluation_only"
     assert model["artifacts"] == [{"path": "weights.onnx", "size_bytes": 10, "sha256": "0" * 64}]
     governance_only_fields = (
         "purpose",
@@ -166,7 +160,7 @@ def test_runtime_manifest_strips_governance_only_fields(tmp_path: Path) -> None:
         "source_repository",
         "license",
         "distribution_permission",
-        "approval_reference",
+        "notes",
     )
     for governance_only in governance_only_fields:
         assert governance_only not in model
@@ -175,7 +169,6 @@ def test_runtime_manifest_strips_governance_only_fields(tmp_path: Path) -> None:
     provider = lean["providers"][0]
     assert provider == {
         "id": "some-provider",
-        "approval_status": "evaluation_only",
         "usage_scope": ["technical_demo"],
     }
 

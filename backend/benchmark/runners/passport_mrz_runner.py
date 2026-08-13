@@ -4,7 +4,7 @@ from time import perf_counter
 from typing import Any
 
 from ai_modules.ekyc.passport_mrz import inspect_td3
-from benchmark import dataset_registry, metrics, quarantine, report
+from benchmark import dataset_registry, metrics, report
 from benchmark.fixtures.mrz_fixtures import generate_mrz_samples
 
 CAPABILITY = "passport_mrz"
@@ -13,7 +13,7 @@ PROVIDER_ID = "icao-td3-rules"
 
 
 def run(sample_count: int = 40, seed: int = 20260811) -> dict[str, Any]:
-    dataset = dataset_registry.require_approved(DATASET_ID, capability=CAPABILITY)
+    dataset = dataset_registry.get_dataset(DATASET_ID, capability=CAPABILITY)
     samples = generate_mrz_samples(sample_count, seed)
 
     latencies: list[float] = []
@@ -51,6 +51,5 @@ def run(sample_count: int = 40, seed: int = 20260811) -> dict[str, Any]:
         excluded_count=0,
         metrics_out=metrics_out,
         latency_ms=latencies,
-        skipped_models=quarantine.skipped_models_for(CAPABILITY),
         notes="Synthetic TD3 line pairs, rule-based check-digit path only (no OCR/image involved).",
     )

@@ -14,12 +14,11 @@
       "size_bytes": 5549978,
       "license": "PROJECT_REVIEW_REQUIRED",
       "required": true,
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
       ],
       "distribution_permission": "internal-demo-only",
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+      "notes": "Checkpoint carries an embedded AGPL marker; author, training code/config and dataset provenance aren't fully documented. See docs/model_license_risk_matrix.html for the full risk assessment before any wider distribution."
     },
     {
       "id": "rapidocr-ppocrv6-small",
@@ -29,12 +28,11 @@
       "revision": "3.9.2",
       "license": "Apache-2.0",
       "required": true,
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
       ],
       "distribution_permission": "allowed-with-license-notice",
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval.",
+      "notes": "Apache-2.0; keep the upstream NOTICE/attribution alongside the wheel.",
       "archive": {
         "filename": "rapidocr-3.9.2-py3-none-any.whl",
         "format": "zip",
@@ -79,11 +77,10 @@
       "sha256": "380512193a8b6cbf6fad80deacdc9b6939d10d473d199892fc6408d13775ea59",
       "size_bytes": 151815373,
       "license": "WEIGHT_LICENSE_REVIEW_REQUIRED",
-      "required": false,
-      "approval_status": "evaluation_only",
-      "usage_scope": ["benchmark_only"],
-      "distribution_permission": "internal-benchmark-only-pending-legal-review",
-      "approval_reference": "Owner accepted risk for benchmark_only use ahead of pilot/product (2026-08-11): no formal legal/license review has occurred on the pbcquoc/vietocr weight (WEIGHT_LICENSE_REVIEW_REQUIRED still unresolved). Owner's rationale: pre-product internal benchmarking carries low external exposure, and the capability/provider architecture (M2 - CapabilityRegistry/ProviderChain) means this model can be swapped out without a redesign if a legal concern surfaces before pilot/production. Deliberately NOT scoped to technical_demo/production - usage_scope excludes it from the Docker build/runtime downloader (scripts/models.py --profile technical_demo), so it cannot reach a deployed image under this decision. Re-review required before any production_approved change."
+      "required": true,
+      "usage_scope": ["technical_demo"],
+      "distribution_permission": "internal-demo-only",
+      "notes": "usage_scope widened from benchmark_only to technical_demo on 2026-08-13: owner decided to run this as the real document_ocr primary across app/benchmark/fieldcheck now, license review not yet done but accepted as a live internal-demo risk (supersedes the 2026-08-11 benchmark-only-only note). RapidOCR remains the configured secondary/fallback (Settings.provider_document_ocr). Revisit before any pilot/production distribution."
     },
     {
       "id": "insightface-buffalo-l",
@@ -93,12 +90,11 @@
       "revision": "v0.7-3e64869",
       "license": "NON_COMMERCIAL_RESEARCH_ONLY",
       "required": true,
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
       ],
       "distribution_permission": "internal-evaluation-only-no-redistribution",
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval.",
+      "notes": "Pretrained weights carry a non-commercial research-only license that is not inherited from the source repository's own license; do not use for pilot/production without different weights or explicit commercial rights. See docs/model_license_risk_matrix.html.",
       "archive": {
         "filename": "insightface-v0.7-buffalo_l.zip",
         "format": "zip",
@@ -150,12 +146,11 @@
       "size_bytes": 1743581,
       "license": "Apache-2.0-UPSTREAM_REVIEW_REQUIRED",
       "required": true,
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
       ],
       "distribution_permission": "internal-demo-only",
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+      "notes": "Repo license is Apache-2.0, but upstream provenance/training-dataset documentation for this specific weight isn't fully established yet."
     },
     {
       "id": "deepfake-detector-v2-q4",
@@ -168,12 +163,11 @@
       "size_bytes": 56757898,
       "license": "Apache-2.0-UPSTREAM_REVIEW_REQUIRED",
       "required": true,
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
       ],
       "distribution_permission": "internal-demo-only",
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+      "notes": "Repo license is Apache-2.0, but upstream provenance/training-dataset documentation for this specific weight isn't fully established yet."
     },
     {
       "id": "vosk-small-vn-0.4",
@@ -183,12 +177,11 @@
       "revision": "vosk-model-small-vn-0.4-2023-02-09",
       "license": "Apache-2.0",
       "required": true,
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
       ],
       "distribution_permission": "allowed-with-license-notice",
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval.",
+      "notes": "Apache-2.0; keep the upstream license notice alongside the archive.",
       "archive": {
         "filename": "vosk-model-small-vn-0.4.zip",
         "format": "zip",
@@ -294,12 +287,11 @@
       "size_bytes": 54573114,
       "license": "NOASSERTION",
       "required": true,
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
       ],
       "distribution_permission": "internal-demo-only-no-redistribution",
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+      "notes": "Repository artifact carries no explicit license (NOASSERTION); provenance is insufficient to infer distribution rights. Internal demo use only."
     },
     {
       "id": "s3fd-face",
@@ -312,118 +304,103 @@
       "size_bytes": 89844381,
       "license": "NOASSERTION",
       "required": true,
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
       ],
       "distribution_permission": "internal-demo-only-no-redistribution",
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+      "notes": "Repository artifact carries no explicit license (NOASSERTION); provenance is insufficient to infer distribution rights. Internal demo use only."
     }
   ],
   "providers": [
     {
-      "id": "rapidocr-ppocrv6-small",
-      "approval_status": "evaluation_only",
+      "id": "vietocr-vgg-transformer",
       "usage_scope": [
         "technical_demo"
-      ],
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+      ]
+    },
+    {
+      "id": "rapidocr-ppocrv6-small",
+      "usage_scope": [
+        "technical_demo"
+      ]
     },
     {
       "id": "cccd-layout-yolov11",
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
-      ],
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+      ]
     },
     {
       "id": "icao-td3-rules",
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
-      ],
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+      ]
     },
     {
       "id": "insightface-buffalo-l-scrfd",
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
-      ],
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+      ]
     },
     {
       "id": "insightface-buffalo-l-arcface",
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
-      ],
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+      ]
     },
     {
       "id": "insightface-buffalo-l-median",
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
-      ],
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+      ]
     },
     {
       "id": "minifasnet-v2",
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
-      ],
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+      ]
     },
     {
       "id": "scrfd-head-pose-rules",
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
-      ],
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+      ]
     },
     {
       "id": "deepfake-detector-v2-q4",
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
-      ],
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+      ]
     },
     {
       "id": "vosk-small-vn-0.4",
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
-      ],
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+      ]
     },
     {
       "id": "syncnet-s3fd-http",
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
-      ],
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+      ]
+    },
+    {
+      "id": "heuristic-document-quality-v1",
+      "usage_scope": [
+        "technical_demo"
+      ]
     },
     {
       "id": "heuristic-replay-v1",
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
-      ],
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+      ]
     },
     {
       "id": "heuristic-camera-injection-v1",
-      "approval_status": "evaluation_only",
       "usage_scope": [
         "technical_demo"
-      ],
-      "approval_reference": "Approved directly by project owner for technical_demo profile only - solo project, no formal review board at time of approval."
+      ]
     }
   ]
 }

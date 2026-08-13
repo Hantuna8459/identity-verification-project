@@ -220,6 +220,38 @@ def test_submit_reports_missing_evidence(client: TestClient) -> None:
     assert "DOCUMENT_BACK" in response.json()["detail"]
 
 
+def test_document_evidence_upload_reports_quality_selfie_video_does_not(
+    client: TestClient,
+) -> None:
+    """document_quality runs synchronously at upload time for a still
+    document photo (fast retake feedback), never for the selfie video. The
+    test client's model_dir has no manifest.json, so the provider is
+    ungoverned here and reports UNAVAILABLE - this asserts the endpoint
+    wires the capability call and shapes the response either way, not that
+    a specific model_dir happens to have it approved."""
+    from support.tiny_media import tiny_jpeg_bytes, tiny_mp4_bytes
+
+    flow = create_claimed_session(client)
+    capture_headers = {"Authorization": f"Bearer {flow['capture_token']}"}
+
+    document_response = client.post(
+        "/api/v2/ekyc/capture/evidence/DOCUMENT_FRONT",
+        headers=capture_headers,
+        files={"file": ("front.jpg", tiny_jpeg_bytes(), "image/jpeg")},
+    )
+    assert document_response.status_code == 201, document_response.text
+    assert "quality" in document_response.json()
+    assert document_response.json()["quality"]["status"] == "UNAVAILABLE"
+
+    video_response = client.post(
+        "/api/v2/ekyc/capture/evidence/SELFIE_VIDEO",
+        headers=capture_headers,
+        files={"file": ("selfie.mp4", tiny_mp4_bytes(), "video/mp4")},
+    )
+    assert video_response.status_code == 201, video_response.text
+    assert "quality" not in video_response.json()
+
+
 def create_unselected_claimed_session(client: TestClient) -> dict:
     created = client.post(
         "/api/v2/ekyc/sessions",

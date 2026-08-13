@@ -5,7 +5,7 @@ from time import perf_counter
 from typing import Any
 
 from ai_modules.ekyc.document_ocr import LocalOcr
-from benchmark import dataset_registry, metrics, quarantine, report
+from benchmark import dataset_registry, metrics, report
 from benchmark.engines.vietocr_engine import (
     DEFAULT_CONFIG_PATH,
     DEFAULT_WEIGHTS_PATH,
@@ -47,13 +47,6 @@ def _run_rapidocr(model_dir: Path, samples: list) -> tuple[dict[str, Any], list[
 
 def _run_vietocr_candidate(model_dir: Path, samples: list) -> dict[str, Any]:
     entry_id = VIETOCR_MODEL_ID
-    if quarantine.is_blocked(entry_id):
-        return {
-            "engine_id": entry_id,
-            "status": "SKIPPED",
-            "reason": "governance-blocked - see skipped_models",
-        }
-
     weights_path = model_dir / DEFAULT_WEIGHTS_PATH
     config_path = model_dir / DEFAULT_CONFIG_PATH
     if not weights_path.is_file() or not config_path.is_file():
@@ -61,9 +54,9 @@ def _run_vietocr_candidate(model_dir: Path, samples: list) -> dict[str, Any]:
             "engine_id": entry_id,
             "status": "SKIPPED",
             "reason": (
-                "approved for benchmark_only but local artifacts not present on "
-                "this machine; run 'python scripts/models.py --profile "
-                "benchmark_only --include vietocr-vgg-transformer' first"
+                "local artifacts not present on this machine; run 'python "
+                "scripts/models.py --profile benchmark_only --include "
+                "vietocr-vgg-transformer' first"
             ),
         }
 
@@ -101,7 +94,7 @@ def _run_vietocr_candidate(model_dir: Path, samples: list) -> dict[str, Any]:
 
 
 def run(model_dir: Path, sample_count: int = 20, seed: int = 20260811) -> dict[str, Any]:
-    dataset = dataset_registry.require_approved(DATASET_ID, capability=CAPABILITY)
+    dataset = dataset_registry.get_dataset(DATASET_ID, capability=CAPABILITY)
     samples, has_diacritics_font = generate_ocr_samples(sample_count, seed)
 
     metrics_out, latencies = _run_rapidocr(model_dir, samples)
@@ -117,16 +110,22 @@ def run(model_dir: Path, sample_count: int = 20, seed: int = 20260811) -> dict[s
         excluded_count=metrics_out.pop("excluded_count"),
         metrics_out=metrics_out,
         latency_ms=latencies,
-        skipped_models=quarantine.skipped_models_for(CAPABILITY),
         candidate_engines=[vietocr_result],
         notes=(
             "Synthetic smoke subset only (rendered Vietnamese field text, not "
-            "real documents). Primary metrics score the active provider "
-            "(RapidOCR, full-page detect+recognize). See candidate_engines for "
-            "vietocr-vgg-transformer (evaluation_only/benchmark_only, "
-            "2026-08-11 owner decision; line-level recognizer scored on the "
-            "same known-good line crops). metrics.has_diacritics_font=false "
-            "means the render font had no Vietnamese diacritic glyphs and "
-            "this run does NOT test what it claims to."
+            "real documents). Primary metrics score RapidOCR's own full-page "
+            "detect+recognize pipeline (now the document_ocr fallback "
+            "provider, not primary - see models/manifest.json). "
+            "candidate_engines scores vietocr-vgg-transformer as a "
+            "line-level recognizer only, on the same known-good line crops - "
+            "not the same thing as the production primary path, which pairs "
+            "this recognizer with RapidOCR's detector "
+            "(ai_modules/ekyc/document_ocr.py::VietOcr); a full-page "
+            "detect+recognize benchmark for that hybrid pipeline does not "
+            "exist yet. See models/manifest.json/"
+            "docs/model_license_risk_matrix.html for vietocr's recorded "
+            "license status. metrics.has_diacritics_font=false means the "
+            "render font had no Vietnamese diacritic glyphs and this run "
+            "does NOT test what it claims to."
         ),
     )

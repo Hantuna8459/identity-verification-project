@@ -15,11 +15,6 @@
     "storage_location": "not_downloaded",
     "checksum_sha256": null,
     "split_policy": "synthetic_smoke",
-    "approval_status": "approved_for_evaluation",
-    "approval_owner": "user",
-    "approval_reference": "M4 kickoff: synthetic-only, no external dataset, no license question - approved for benchmark_only scope by project owner.",
-    "approved_at": "2026-08-11T00:00:00Z",
-    "expires_at": null,
     "notes": "Smoke subset only; not a substitute for MIDV-2020/DocXPand-25k candidates listed in PROJECT_ROADMAP.md M4. Regenerated at run time from fixtures/ocr_fixtures.py, not stored in Git."
   },
   {
@@ -38,11 +33,6 @@
     "storage_location": "not_downloaded",
     "checksum_sha256": null,
     "split_policy": "synthetic_smoke",
-    "approval_status": "approved_for_evaluation",
-    "approval_owner": "user",
-    "approval_reference": "M4 kickoff: synthetic-only, no external dataset, no license question - approved for benchmark_only scope by project owner.",
-    "approved_at": "2026-08-11T00:00:00Z",
-    "expires_at": null,
     "notes": "Pure text-line fixture, no image/model dependency; exercises inspect_td3 check-digit and detection logic directly. Regenerated at run time from fixtures/mrz_fixtures.py, not stored in Git."
   }
 ]

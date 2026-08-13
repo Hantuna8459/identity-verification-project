@@ -57,8 +57,9 @@ class Settings(BaseSettings):
     # deployment is operational information and should not sit fixed in git
     # history. These defaults are the technical-demo baseline only; a
     # pilot/production deployment overrides them via its own `.env`.
-    provider_document_ocr: str = "rapidocr-ppocrv6-small"
+    provider_document_ocr: str = "vietocr-vgg-transformer,rapidocr-ppocrv6-small"
     provider_document_layout: str = "cccd-layout-yolov11"
+    provider_document_quality: str = "heuristic-document-quality-v1"
     provider_passport_mrz: str = "icao-td3-rules"
     provider_face_detection: str = "insightface-buffalo-l-scrfd"
     provider_face_embedding: str = "insightface-buffalo-l-arcface"

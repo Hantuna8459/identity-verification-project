@@ -28,7 +28,7 @@ def test_governance_failure_is_not_classified_as_artifact_only() -> None:
     module = _load_validator()
 
     assert module._is_artifact_only_failure(["some-provider:not_found"]) is False
-    assert module._is_artifact_only_failure(["some-provider:not_approved_for_profile"]) is False
+    assert module._is_artifact_only_failure(["some-provider:not_in_profile_scope"]) is False
     assert module._is_artifact_only_failure(["PROVIDER_NOT_REGISTERED"]) is False
     # Mixed: one governance reason alongside an artifact one must still fail closed.
     assert module._is_artifact_only_failure(["x:not_found", "y:weights.onnx:missing"]) is False

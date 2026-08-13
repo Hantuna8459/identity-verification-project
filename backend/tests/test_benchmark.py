@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from benchmark import dataset_registry, metrics, quarantine
+from benchmark import dataset_registry, metrics
 from benchmark.fixtures.mrz_fixtures import generate_mrz_samples
 from benchmark.fixtures.ocr_fixtures import generate_ocr_samples
 from benchmark.runners import passport_mrz_runner
@@ -34,11 +34,13 @@ def test_dataset_registry_loads_expected_records() -> None:
     assert "synthetic-document-ocr-smoke-v1" in records
     assert "synthetic-passport-mrz-smoke-v1" in records
     for record in records.values():
-        assert record.approval_status == "approved_for_evaluation"
         assert record.sensitivity == "synthetic"
 
 
-def test_dataset_registry_fails_closed_on_unapproved_dataset(tmp_path: Path) -> None:
+def test_get_dataset_ignores_legacy_status_fields(tmp_path: Path) -> None:
+    """No approval workflow gates dataset usage anymore - get_dataset() only
+    enforces that the dataset exists and is registered for the requested
+    capability, regardless of any status-like field on the record."""
     entry = dataset_registry.load_all()[0]
     tampered = dict(entry.__dict__)
     tampered.update(
@@ -50,60 +52,26 @@ def test_dataset_registry_fails_closed_on_unapproved_dataset(tmp_path: Path) -> 
             "distribution_permission": "allowed",
             "storage_location": "not_downloaded",
             "checksum_sha256": None,
-            "approval_owner": "user",
-            "approved_at": None,
-            "expires_at": None,
-            "notes": "",
-            "approval_status": "candidate",
+            "notes": "unreviewed - legal concern noted here",
         }
     )
     registry_path = tmp_path / "registry.json"
     registry_path.write_text(json.dumps([tampered]), encoding="utf-8")
 
-    with pytest.raises(RuntimeError, match="fail-closed"):
-        dataset_registry.require_approved(
-            tampered["dataset_id"], capability="document_ocr", registry_path=registry_path
-        )
+    record = dataset_registry.get_dataset(
+        tampered["dataset_id"], capability="document_ocr", registry_path=registry_path
+    )
+    assert record.dataset_id == tampered["dataset_id"]
+
+
+def test_dataset_registry_rejects_unknown_dataset() -> None:
+    with pytest.raises(RuntimeError, match="not found in dataset registry"):
+        dataset_registry.get_dataset("does-not-exist", capability="document_ocr")
 
 
 def test_dataset_registry_rejects_wrong_capability() -> None:
     with pytest.raises(RuntimeError, match="not registered for capability"):
-        dataset_registry.require_approved(
-            "synthetic-document-ocr-smoke-v1", capability="passport_mrz"
-        )
-
-
-def test_quarantine_no_longer_flags_vietocr_once_evaluation_only() -> None:
-    """models/manifest.json: vietocr-vgg-transformer moved to
-    evaluation_only/benchmark_only (owner-accepted risk, 2026-08-11) - no
-    longer license-blocked, so it must not show up as skipped."""
-    assert quarantine.skipped_models_for("document_ocr") == []
-
-
-def test_quarantine_flags_a_genuinely_blocked_candidate(tmp_path: Path) -> None:
-    manifest_path = tmp_path / "manifest.json"
-    manifest_path.write_text(
-        json.dumps(
-            {
-                "models": [
-                    {
-                        "id": "vietocr-vgg-transformer",
-                        "approval_status": "quarantined",
-                        "license": "WEIGHT_LICENSE_REVIEW_REQUIRED",
-                        "distribution_permission": "not-established",
-                    }
-                ]
-            }
-        ),
-        encoding="utf-8",
-    )
-    skipped = quarantine.skipped_models_for("document_ocr", manifest_path=manifest_path)
-    assert [entry["model_id"] for entry in skipped] == ["vietocr-vgg-transformer"]
-    assert skipped[0]["approval_status"] == "quarantined"
-
-
-def test_quarantine_empty_for_unmapped_capability() -> None:
-    assert quarantine.skipped_models_for("passport_mrz") == []
+        dataset_registry.get_dataset("synthetic-document-ocr-smoke-v1", capability="passport_mrz")
 
 
 def test_mrz_fixtures_are_deterministic() -> None:
@@ -142,8 +110,8 @@ def test_document_ocr_runner_report_shape() -> None:
     assert result["sample_count"] == 2
     assert result["metrics"]["cer_mean"] is not None
     assert result["metrics"]["cer_mean"] < 0.2
-    # vietocr-vgg-transformer is evaluation_only/benchmark_only, not
-    # license-blocked, so it must never show up as governance-skipped.
+    # No governance gate excludes candidates anymore - skipped_models is only
+    # ever populated by genuine capability-level skips, not license status.
     assert result["skipped_models"] == []
     assert len(result["candidate_engines"]) == 1
     vietocr_result = result["candidate_engines"][0]

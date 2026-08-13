@@ -8,7 +8,9 @@ from typing import Any
 _REGISTRY_PATH = Path(__file__).resolve().parent / "datasets" / "registry.json"
 
 # Field set per the dataset registry schema in
-# docs/M0_CONTRACT_GOVERNANCE_BASELINE.md section 6.
+# docs/M0_CONTRACT_GOVERNANCE_BASELINE.md section 6. Records document
+# provenance/license/sensitivity for legal-risk tracking (`notes`) - nothing
+# here gates whether a dataset can be used in a benchmark run.
 _REQUIRED_FIELDS = {
     "dataset_id",
     "name",
@@ -25,15 +27,8 @@ _REQUIRED_FIELDS = {
     "storage_location",
     "checksum_sha256",
     "split_policy",
-    "approval_status",
-    "approval_owner",
-    "approval_reference",
-    "approved_at",
-    "expires_at",
     "notes",
 }
-
-_APPROVED_STATUS = "approved_for_evaluation"
 
 
 @dataclass(frozen=True)
@@ -46,8 +41,6 @@ class DatasetRecord:
     usage_scope: str
     sensitivity: str
     split_policy: str
-    approval_status: str
-    approval_reference: str | None
 
 
 def load_all(registry_path: Path = _REGISTRY_PATH) -> list[DatasetRecord]:
@@ -70,28 +63,22 @@ def load_all(registry_path: Path = _REGISTRY_PATH) -> list[DatasetRecord]:
                 usage_scope=entry["usage_scope"],
                 sensitivity=entry["sensitivity"],
                 split_policy=entry["split_policy"],
-                approval_status=entry["approval_status"],
-                approval_reference=entry["approval_reference"],
             )
         )
     return records
 
 
-def require_approved(
+def get_dataset(
     dataset_id: str, *, capability: str, registry_path: Path = _REGISTRY_PATH
 ) -> DatasetRecord:
-    """Fail closed: a benchmark runner may only use a dataset registered for
-    its capability and explicitly `approved_for_evaluation`."""
+    """Look up a registered dataset for `capability`. Raises if the dataset
+    isn't registered at all, or isn't registered for this capability - those
+    are reference-integrity checks, not a license/approval gate."""
     for record in load_all(registry_path):
         if record.dataset_id != dataset_id:
             continue
         if capability not in record.capabilities:
             raise RuntimeError(f"{dataset_id}: not registered for capability {capability!r}")
-        if record.approval_status != _APPROVED_STATUS:
-            raise RuntimeError(
-                f"{dataset_id}: approval_status={record.approval_status!r}, refusing to "
-                f"benchmark (fail-closed; only {_APPROVED_STATUS!r} datasets may run)"
-            )
         return record
     raise RuntimeError(f"{dataset_id}: not found in dataset registry")
 
@@ -103,5 +90,4 @@ def as_report_fields(record: DatasetRecord) -> dict[str, Any]:
         "version": record.version,
         "split_policy": record.split_policy,
         "sensitivity": record.sensitivity,
-        "approval_status": record.approval_status,
     }

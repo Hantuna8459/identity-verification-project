@@ -48,7 +48,6 @@ def _write_governance_manifest(
             "capability": registration.capability,
             "model_id": registration.model_id,
             "adapter_spec_version": registration.adapter_spec_version,
-            "approval_status": "evaluation_only",
             "usage_scope": ["technical_demo"],
         }
         for provider_id, registration in registrations.items()
@@ -190,9 +189,9 @@ def test_resolve_raises_when_capability_not_registered(tmp_path: Path) -> None:
         registry.resolve("face_detection")
 
 
-def test_provider_not_approved_in_manifest_fails_closed(tmp_path: Path) -> None:
+def test_provider_missing_governance_entry_fails_closed(tmp_path: Path) -> None:
     """Being wired in code (a ProviderRegistration exists) is not enough -
-    without a matching approved entry in manifest.json's `providers[]`, the
+    without a governance entry at all in manifest.json's `providers[]`, the
     provider must never be invoked. No manifest.json is written for this
     test, so `fake-ungoverned` has no governance record at all."""
     provider = FakeSuccessProvider("fake-ungoverned", {"status": "OK"})

@@ -7,15 +7,16 @@ from app.domain.capability_ports import CapabilityName, ProviderChain
 # bumping this version) is what ADR-M0-004 calls "changing config" - it
 # invalidates any threshold computed against the old provider/model for the
 # affected capability until benchmarked again.
-CAPABILITY_PROVIDER_CONFIG_VERSION = "capability-providers/2026-08-06"
+CAPABILITY_PROVIDER_CONFIG_VERSION = "capability-providers/2026-08-13"
 
 # capability -> Settings field holding "primary[,secondary]" provider id.
-# `document_quality` and `speech_verification` have no implementation yet and
-# are intentionally absent here - CapabilityRegistry reports them
-# NOT_REGISTERED rather than pointing at a fake provider.
+# `speech_verification` has no implementation yet and is intentionally
+# absent here - CapabilityRegistry reports it NOT_REGISTERED rather than
+# pointing at a fake provider.
 _CAPABILITY_SETTINGS_FIELDS: dict[CapabilityName, str] = {
     "document_ocr": "provider_document_ocr",
     "document_layout": "provider_document_layout",
+    "document_quality": "provider_document_quality",
     "passport_mrz": "provider_passport_mrz",
     "face_detection": "provider_face_detection",
     "face_embedding": "provider_face_embedding",
@@ -45,9 +46,9 @@ def build_provider_chains(settings: Settings) -> dict[CapabilityName, ProviderCh
     Each deployment (technical-demo, pilot, production, ...) supplies its own
     `.env` with the provider ids appropriate for that environment; this
     function does not itself branch on `settings.model_profile` - the
-    manifest's `usage_scope`/`approval_status` gate (via `ManifestReader`)
-    already fails a provider closed if it isn't approved for the active
-    profile, so there is no separate profile table to keep in sync here.
+    manifest's `usage_scope` gate (via `ManifestReader`) already fails a
+    provider closed if it isn't registered for the active profile, so there
+    is no separate profile table to keep in sync here.
     """
     return {
         capability: _parse_chain(getattr(settings, field_name))

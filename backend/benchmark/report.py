@@ -21,7 +21,7 @@ def build_report(
     excluded_count: int,
     metrics_out: dict[str, Any],
     latency_ms: list[float],
-    skipped_models: list[dict[str, Any]],
+    skipped_models: list[dict[str, Any]] | None = None,
     candidate_engines: list[dict[str, Any]] | None = None,
     notes: str | None = None,
 ) -> dict[str, Any]:
@@ -54,7 +54,7 @@ def build_report(
             "p95": metrics.percentile(latency_ms, 0.95),
             "mean": metrics.mean(latency_ms),
         },
-        "skipped_models": skipped_models,
+        "skipped_models": skipped_models or [],
         "candidate_engines": candidate_engines or [],
         "notes": notes,
     }

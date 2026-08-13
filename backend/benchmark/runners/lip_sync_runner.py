@@ -19,7 +19,10 @@ _DATASET = {
     "version": "n/a",
     "split_policy": "developer_local_real_samples",
     "sensitivity": "real_pii",
-    "approval_status": "developer_own_consented_data_not_a_governed_dataset",
+    "notes": (
+        "Developer's own consented data, not a governed dataset - not "
+        "registered in benchmark/datasets/registry.json."
+    ),
 }
 
 
