@@ -49,6 +49,7 @@ type Readiness = {
 const capabilityLabels: Record<string, string> = {
   ocr: "OCR giấy tờ",
   face_match: "Đối chiếu khuôn mặt",
+  face_quality: "Chất lượng khuôn mặt",
   liveness: "Liveness thụ động",
   active_liveness: "Liveness chủ động",
   replay_attack: "Replay attack",
@@ -77,6 +78,8 @@ const metricLabels: Record<string, string> = {
   sampled_pose_count: "Mẫu tư thế",
   duplicate_pairs: "Cặp frame trùng",
   sampled_frame_count: "Frame đã phân tích",
+  multi_face_frame_count: "Frame có nhiều khuôn mặt",
+  frontal_frame_found: "Có frame nhìn thẳng",
   approval_status: "Phạm vi ngưỡng",
   region_count: "Vùng giấy tờ",
   line_count: "Dòng OCR",

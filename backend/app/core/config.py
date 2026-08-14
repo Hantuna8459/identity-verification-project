@@ -59,6 +59,19 @@ class Settings(BaseSettings):
     passive_liveness_threshold: float = 0.65
     passive_liveness_consider_threshold: float = 0.45
     visual_deepfake_threshold: float = 0.68
+    # min/max_coverage and min_video_face_frames copied from C2-App-036's
+    # EKYC_MIN_FACE_COVERAGE/EKYC_MAX_FACE_COVERAGE/EKYC_MIN_VIDEO_FACE_FRAMES.
+    # blur/yaw/roll thresholds are this project's own - blur has no reference
+    # equivalent to copy (its assess_face_quality scores blur on a 0-1 scale
+    # this project doesn't use, see ai_modules.ekyc.face_quality); yaw reuses
+    # active_liveness's own already-tuned center_threshold (0.08) rather than
+    # inventing a second "frontal" definition; roll is new, untuned.
+    face_quality_min_video_face_frames: int = 8
+    face_quality_blur_threshold: float = 60.0
+    face_quality_min_coverage: float = 0.08
+    face_quality_max_coverage: float = 0.65
+    face_quality_yaw_threshold: float = 0.08
+    face_quality_roll_threshold: float = 0.35
     demo_ocr_rerun_enabled: bool = False
     capability_provider_timeout_seconds: float = 30.0
     capability_circuit_failure_threshold: int = 3
@@ -72,6 +85,7 @@ class Settings(BaseSettings):
     provider_document_ocr: str = "vietocr-vgg-transformer,rapidocr-ppocrv6-small"
     provider_document_layout: str = "cccd-layout-yolov11"
     provider_document_quality: str = "heuristic-document-quality-v1"
+    provider_face_quality: str = "heuristic-face-quality-v1"
     provider_passport_mrz: str = "icao-td3-rules"
     provider_face_detection: str = "insightface-buffalo-l-scrfd"
     provider_face_embedding: str = "insightface-buffalo-l-arcface"

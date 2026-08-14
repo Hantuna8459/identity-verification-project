@@ -22,6 +22,7 @@ CapabilityName = Literal[
     "replay_attack",
     "camera_injection",
     "document_quality",
+    "face_quality",
     "speech_verification",
 ]
 
@@ -141,6 +142,17 @@ class FaceMatchingRequest:
 
 
 @dataclass(frozen=True)
+class FaceQualityRequest:
+    live_candidates: list[tuple[np.ndarray, FaceDetectionResult]]
+    min_video_face_frames: int
+    blur_threshold: float
+    min_coverage: float
+    max_coverage: float
+    yaw_threshold: float
+    roll_threshold: float
+
+
+@dataclass(frozen=True)
 class PassiveLivenessRequest:
     image: np.ndarray
     bbox: np.ndarray
@@ -205,6 +217,7 @@ class FaceDetectionResult:
     score: float
     bbox: np.ndarray
     landmarks: np.ndarray
+    face_count: int = 1
 
 
 @dataclass(frozen=True)
@@ -251,6 +264,18 @@ class FaceMatchingResult:
     consider_threshold: float
     decision: str  # "match" | "consider" | "failed" - see app.domain.threshold_decisions
     reason_codes: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class FaceQualityResult:
+    status: str
+    engine: str
+    sampled_frame_count: int
+    multi_face_frame_count: int
+    frontal_frame_found: bool
+    defect_flags: list[str]
+    reason_codes: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

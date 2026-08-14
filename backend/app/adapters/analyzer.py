@@ -33,6 +33,12 @@ class OfflineModelAnalyzer:
         passive_liveness_threshold: float = 0.65,
         passive_liveness_consider_threshold: float = 0.45,
         visual_deepfake_threshold: float = 0.68,
+        face_quality_min_video_face_frames: int = 8,
+        face_quality_blur_threshold: float = 60.0,
+        face_quality_min_coverage: float = 0.08,
+        face_quality_max_coverage: float = 0.65,
+        face_quality_yaw_threshold: float = 0.08,
+        face_quality_roll_threshold: float = 0.35,
     ) -> None:
         self._registry = registry
         self._require_models = require_models
@@ -49,6 +55,12 @@ class OfflineModelAnalyzer:
             passive_liveness_threshold=passive_liveness_threshold,
             passive_liveness_consider_threshold=passive_liveness_consider_threshold,
             visual_deepfake_threshold=visual_deepfake_threshold,
+            face_quality_min_video_face_frames=face_quality_min_video_face_frames,
+            face_quality_blur_threshold=face_quality_blur_threshold,
+            face_quality_min_coverage=face_quality_min_coverage,
+            face_quality_max_coverage=face_quality_max_coverage,
+            face_quality_yaw_threshold=face_quality_yaw_threshold,
+            face_quality_roll_threshold=face_quality_roll_threshold,
         )
 
     def readiness(self) -> dict[str, Any]:
@@ -100,8 +112,15 @@ class OfflineModelAnalyzer:
 
     @staticmethod
     def _execution_status(value: dict[str, Any]) -> str:
+        # "DEFECT_DETECTED" (document_quality, face_quality) means the check
+        # ran successfully and found a real defect - a correct result, not a
+        # capability failure. Mapping it to the default "ERROR" branch would
+        # make a working quality check indistinguishable from the capability
+        # itself crashing (pre-existing bug in document_quality's contract
+        # output, caught while wiring face_quality the same way).
         return {
             "OK": "COMPLETED",
+            "DEFECT_DETECTED": "COMPLETED",
             "INCONCLUSIVE": "INCONCLUSIVE",
             "UNAVAILABLE": "UNAVAILABLE",
         }.get(str(value.get("status", "UNAVAILABLE")), "ERROR")
@@ -237,6 +256,20 @@ class OfflineModelAnalyzer:
                 },
                 reason_codes=[str(code) for code in value.get("reason_codes", [])],
             )
+        if name == "face_quality":
+            defect_flags = value.get("defect_flags") or []
+            return cls._base_output(
+                value,
+                review_signal="ADVERSE_SIGNAL" if defect_flags else "NO_ADVERSE_SIGNAL",
+                details={
+                    "sampled_frame_count": value.get("sampled_frame_count"),
+                    "multi_face_frame_count": value.get("multi_face_frame_count"),
+                    "frontal_frame_found": value.get("frontal_frame_found"),
+                    "defect_flags": defect_flags,
+                    "warnings": value.get("warnings", []),
+                },
+                reason_codes=[str(code) for code in value.get("reason_codes", [])],
+            )
         if name == "active_liveness":
             complete = value.get("sequence_complete") is True
             return cls._base_output(
@@ -340,6 +373,7 @@ class OfflineModelAnalyzer:
             ("visual_deepfake", "VISUAL_DEEPFAKE_SUSPECTED"),
             ("face_match", "FACE_MATCH_ADVERSE_SIGNAL"),
             ("liveness", "PASSIVE_LIVENESS_ADVERSE_SIGNAL"),
+            ("face_quality", "FACE_QUALITY_DEFECT_DETECTED"),
         ):
             signal = capabilities.get(capability, {})
             if isinstance(signal, dict) and signal.get("review_signal") == "ADVERSE_SIGNAL":

@@ -391,6 +391,12 @@
       ]
     },
     {
+      "id": "heuristic-face-quality-v1",
+      "usage_scope": [
+        "technical_demo"
+      ]
+    },
+    {
       "id": "heuristic-replay-v1",
       "usage_scope": [
         "technical_demo"

@@ -23,6 +23,7 @@ from app.domain.capability_ports import (
     FaceDetectionRequest,
     FaceDetectionResult,
     FaceMatchingRequest,
+    FaceQualityRequest,
     LipSyncRequest,
     PassiveLivenessRequest,
     PassportMrzRequest,
@@ -58,6 +59,12 @@ class EkycOrchestrator:
         passive_liveness_threshold: float = 0.65,
         passive_liveness_consider_threshold: float = 0.45,
         visual_deepfake_threshold: float = 0.68,
+        face_quality_min_video_face_frames: int = 8,
+        face_quality_blur_threshold: float = 60.0,
+        face_quality_min_coverage: float = 0.08,
+        face_quality_max_coverage: float = 0.65,
+        face_quality_yaw_threshold: float = 0.08,
+        face_quality_roll_threshold: float = 0.35,
     ) -> None:
         self._registry = registry
         self._max_video_frames = max(1, max_video_frames)
@@ -69,6 +76,12 @@ class EkycOrchestrator:
         self._passive_liveness_threshold = passive_liveness_threshold
         self._passive_liveness_consider_threshold = passive_liveness_consider_threshold
         self._visual_deepfake_threshold = visual_deepfake_threshold
+        self._face_quality_min_video_face_frames = face_quality_min_video_face_frames
+        self._face_quality_blur_threshold = face_quality_blur_threshold
+        self._face_quality_min_coverage = face_quality_min_coverage
+        self._face_quality_max_coverage = face_quality_max_coverage
+        self._face_quality_yaw_threshold = face_quality_yaw_threshold
+        self._face_quality_roll_threshold = face_quality_roll_threshold
 
     @staticmethod
     def _failure_from_attempts(attempts: list[Attempt]) -> dict[str, Any]:
@@ -254,6 +267,18 @@ class EkycOrchestrator:
                     consider_threshold=self._face_match_consider_threshold,
                 ),
             )
+            face_quality_result = self._run(
+                "face_quality",
+                FaceQualityRequest(
+                    live_candidates=live_candidates,
+                    min_video_face_frames=self._face_quality_min_video_face_frames,
+                    blur_threshold=self._face_quality_blur_threshold,
+                    min_coverage=self._face_quality_min_coverage,
+                    max_coverage=self._face_quality_max_coverage,
+                    yaw_threshold=self._face_quality_yaw_threshold,
+                    roll_threshold=self._face_quality_roll_threshold,
+                ),
+            )
             live_image, live_face = select_face_match_candidates(
                 live_candidates, self._max_face_match_frames
             )[0]
@@ -277,6 +302,7 @@ class EkycOrchestrator:
         except CapabilityUnavailableError as exc:
             failure = {"status": "UNAVAILABLE", "reason": exc.reason}
             face_result = failure
+            face_quality_result = dict(failure)
             liveness_result = dict(failure)
             active_liveness_result = dict(failure)
             deepfake_result = dict(failure)
@@ -286,6 +312,7 @@ class EkycOrchestrator:
             status = "INCONCLUSIVE" if isinstance(exc, InvalidEvidenceError) else "UNAVAILABLE"
             failure = {"status": status, "error_type": type(exc).__name__}
             face_result = failure
+            face_quality_result = dict(failure)
             liveness_result = dict(failure)
             active_liveness_result = dict(failure)
             deepfake_result = dict(failure)
@@ -309,6 +336,7 @@ class EkycOrchestrator:
         return {
             "ocr": ocr_results,
             "face_match": face_result,
+            "face_quality": face_quality_result,
             "liveness": liveness_result,
             "active_liveness": active_liveness_result,
             "replay_attack": replay_result,

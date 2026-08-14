@@ -32,6 +32,12 @@ def build_analyzer(settings: Settings) -> OfflineModelAnalyzer:
         passive_liveness_threshold=settings.passive_liveness_threshold,
         passive_liveness_consider_threshold=settings.passive_liveness_consider_threshold,
         visual_deepfake_threshold=settings.visual_deepfake_threshold,
+        face_quality_min_video_face_frames=settings.face_quality_min_video_face_frames,
+        face_quality_blur_threshold=settings.face_quality_blur_threshold,
+        face_quality_min_coverage=settings.face_quality_min_coverage,
+        face_quality_max_coverage=settings.face_quality_max_coverage,
+        face_quality_yaw_threshold=settings.face_quality_yaw_threshold,
+        face_quality_roll_threshold=settings.face_quality_roll_threshold,
     )
 
 

@@ -16,6 +16,7 @@ from app.domain.capability_ports import (
     DocumentQualityResult,
     FaceDetectionResult,
     FaceMatchingResult,
+    FaceQualityResult,
     LipSyncResult,
     PassiveLivenessResult,
     PassportMrzResult,
@@ -92,6 +93,14 @@ def _default_results() -> dict[str, Any]:
             match_threshold=0.45,
             consider_threshold=0.30,
             decision="match",
+        ),
+        "face_quality": FaceQualityResult(
+            status="OK",
+            engine="fake-face-quality",
+            sampled_frame_count=10,
+            multi_face_frame_count=0,
+            frontal_frame_found=True,
+            defect_flags=[],
         ),
         "passive_liveness": PassiveLivenessResult(
             status="OK",

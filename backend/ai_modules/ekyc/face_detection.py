@@ -76,14 +76,18 @@ class ScrfdFaceDetector:
         )
         return intersection / max(first_area + second_area - intersection, 1e-6)
 
-    def best_face(self, image: np.ndarray) -> dict[str, np.ndarray | float]:
+    def best_face(self, image: np.ndarray) -> dict[str, np.ndarray | float | int]:
         faces = self.detect(image)
         if not faces:
             raise InvalidEvidenceError("No face detected")
-        return max(
+        best = max(
             faces,
             key=lambda face: float(
                 (np.asarray(face["bbox"])[2] - np.asarray(face["bbox"])[0])
                 * (np.asarray(face["bbox"])[3] - np.asarray(face["bbox"])[1])
             ),
         )
+        # face_count matters beyond picking which one to use - a second
+        # face in frame is itself a signal (face_quality's multi-face
+        # check), so it can't just be discarded here the way it was before.
+        return {**best, "face_count": len(faces)}

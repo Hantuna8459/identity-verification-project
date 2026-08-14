@@ -12,6 +12,7 @@ from ai_modules.ekyc.document_ocr import LocalOcr, VietOcr
 from ai_modules.ekyc.document_quality import inspect_document_quality
 from ai_modules.ekyc.face_detection import ScrfdFaceDetector
 from ai_modules.ekyc.face_embedding import ArcFaceEmbedder
+from ai_modules.ekyc.face_quality import aggregate_face_quality, assess_face_frame
 from ai_modules.ekyc.media import call_lipsync
 from ai_modules.ekyc.passive_liveness import MiniFasNetEngine
 from ai_modules.ekyc.passport_mrz import inspect_td3
@@ -41,6 +42,8 @@ from app.domain.capability_ports import (
     FaceEmbeddingRequest,
     FaceMatchingRequest,
     FaceMatchingResult,
+    FaceQualityRequest,
+    FaceQualityResult,
     LipSyncRequest,
     LipSyncResult,
     PassiveLivenessRequest,
@@ -159,6 +162,7 @@ class ScrfdFaceDetectionProvider:
             score=float(raw["score"]),
             bbox=np.asarray(raw["bbox"]),
             landmarks=np.asarray(raw["landmarks"]),
+            face_count=int(raw.get("face_count", 1)),
         )
 
 
@@ -222,6 +226,41 @@ class MedianFaceMatchingProvider:
             consider_threshold=request.consider_threshold,
             decision=decision,
             reason_codes=reason_codes,
+        )
+
+
+class HeuristicFaceQualityProvider:
+    """Reuses the same live_candidates face_matching already has (face
+    detection already ran once per frame by the time this is called) -
+    no model of its own, same pattern as HeuristicDocumentQualityProvider."""
+
+    provider_id = "heuristic-face-quality-v1"
+    model_id: str | None = None
+    adapter_spec_version = ADAPTER_SPEC_VERSION
+
+    def run(self, request: FaceQualityRequest) -> FaceQualityResult:
+        frame_assessments = [
+            assess_face_frame(image, face.bbox, face.landmarks, face.face_count)
+            for image, face in request.live_candidates
+        ]
+        raw = aggregate_face_quality(
+            frame_assessments,
+            min_video_face_frames=request.min_video_face_frames,
+            blur_threshold=request.blur_threshold,
+            min_coverage=request.min_coverage,
+            max_coverage=request.max_coverage,
+            yaw_threshold=request.yaw_threshold,
+            roll_threshold=request.roll_threshold,
+        )
+        return FaceQualityResult(
+            status=raw["status"],
+            engine=raw["engine"],
+            sampled_frame_count=raw["sampled_frame_count"],
+            multi_face_frame_count=raw["multi_face_frame_count"],
+            frontal_frame_found=raw["frontal_frame_found"],
+            defect_flags=raw["defect_flags"],
+            reason_codes=raw["reason_codes"],
+            warnings=raw["warnings"],
         )
 
 
@@ -512,6 +551,14 @@ def build_capability_registry(settings: Settings) -> CapabilityRegistry:
             capability="face_matching",
             factory=lambda: MedianFaceMatchingProvider(embedding_provider()),
             model_id="insightface-buffalo-l",
+            adapter_spec_version=ADAPTER_SPEC_VERSION,
+            config_version=CAPABILITY_PROVIDER_CONFIG_VERSION,
+        ),
+        "heuristic-face-quality-v1": ProviderRegistration(
+            provider_id="heuristic-face-quality-v1",
+            capability="face_quality",
+            factory=HeuristicFaceQualityProvider,
+            model_id=None,
             adapter_spec_version=ADAPTER_SPEC_VERSION,
             config_version=CAPABILITY_PROVIDER_CONFIG_VERSION,
         ),

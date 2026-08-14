@@ -17,6 +17,7 @@ _CAPABILITY_SETTINGS_FIELDS: dict[CapabilityName, str] = {
     "document_ocr": "provider_document_ocr",
     "document_layout": "provider_document_layout",
     "document_quality": "provider_document_quality",
+    "face_quality": "provider_face_quality",
     "passport_mrz": "provider_passport_mrz",
     "face_detection": "provider_face_detection",
     "face_embedding": "provider_face_embedding",
