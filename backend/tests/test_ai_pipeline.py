@@ -16,7 +16,13 @@ from app.adapters.analyzer import OfflineModelAnalyzer
 from app.adapters.capability_registry import CapabilityRegistry
 from app.adapters.manifest import ManifestReader
 from app.domain.capability_ports import FaceDetectionResult
+from app.domain.document_fields import parse_layout_field, parse_layout_fields
 from app.domain.face_matching import aggregate_face_similarities, select_face_match_candidates
+from app.domain.threshold_decisions import (
+    decide_face_match,
+    decide_passive_liveness,
+    decide_visual_deepfake,
+)
 
 
 def _empty_registry(model_dir: Path, profile: str = "technical_demo") -> CapabilityRegistry:
@@ -219,6 +225,177 @@ def test_face_match_uses_median_to_resist_one_optimistic_frame() -> None:
     assert similarity == pytest.approx(0.43)
 
 
+def test_parse_layout_field_strips_bilingual_label_from_name() -> None:
+    value = parse_layout_field("full_name", "Ho và tên I Full name: LUONG QUOC DOAN")
+
+    assert value == "LUONG QUOC DOAN"
+
+
+def test_parse_layout_field_extracts_date_regardless_of_label_noise() -> None:
+    value = parse_layout_field("date_of_birth", "Ngày sinh / Date of birth: 30/05/2001")
+
+    assert value == "30/05/2001"
+
+
+def test_parse_layout_field_extracts_id_digits_from_ocr_noise() -> None:
+    value = parse_layout_field("id_number", "sóINo.: 031201000716")
+
+    assert value == "031201000716"
+
+
+def test_parse_layout_field_leaves_mrz_unlabeled() -> None:
+    raw = "IDVNM2010007163031201000716<<3 0105307M2605306VNM<<<<<<<<<<<8"
+
+    assert parse_layout_field("mrz", raw) == raw
+
+
+def test_parse_layout_field_falls_back_to_label_split_without_a_date_match() -> None:
+    value = parse_layout_field("expiry_date", "Có giá trị đến / Date of expiry")
+
+    assert value == "Có giá trị đến / Date of expiry"
+
+
+def test_parse_layout_field_strips_semicolon_separated_label() -> None:
+    # VietOCR sometimes reads the printed ':' as ';' - RapidOCR usually keeps it.
+    value = parse_layout_field("full_name", "Họ và tên 1 Full name; LƯƠNG QUỐC ĐOÀN")
+
+    assert value == "LƯƠNG QUỐC ĐOÀN"
+
+
+def test_parse_layout_field_falls_back_to_label_keyword_without_any_separator() -> None:
+    # VietOCR sometimes drops the separator entirely, leaving just a space
+    # between the printed English label and the value.
+    assert parse_layout_field("sex", "Giới tĩnh/Sex Nam") == "Nam"
+    assert parse_layout_field("nationality", "Quốc tịch/Nationality Việt Nam") == "Việt Nam"
+
+
+def test_parse_layout_fields_applies_per_field_rules_to_a_whole_dict() -> None:
+    parsed = parse_layout_fields(
+        {
+            "sex": "Giói tinh / Sex: Nam",
+            "issue_date": "Ngày, tháng, năm /Date, month, year: 29/09/2022",
+        }
+    )
+
+    assert parsed == {"sex": "Nam", "issue_date": "29/09/2022"}
+
+
+def test_decide_face_match_above_threshold_matches_with_no_reason_codes() -> None:
+    decision, reason_codes = decide_face_match(0.5, match_threshold=0.45, consider_threshold=0.30)
+
+    assert decision == "match"
+    assert reason_codes == []
+
+
+def test_decide_face_match_in_manual_review_band() -> None:
+    decision, reason_codes = decide_face_match(0.35, match_threshold=0.45, consider_threshold=0.30)
+
+    assert decision == "consider"
+    assert reason_codes == ["FACE_MATCH_MANUAL_REVIEW_BAND"]
+
+
+def test_decide_face_match_below_consider_threshold() -> None:
+    decision, reason_codes = decide_face_match(0.1, match_threshold=0.45, consider_threshold=0.30)
+
+    assert decision == "failed"
+    assert reason_codes == ["FACE_MATCH_BELOW_CONSIDER_THRESHOLD"]
+
+
+def test_decide_passive_liveness_above_threshold_is_live() -> None:
+    decision, reason_codes = decide_passive_liveness(0.9, threshold=0.65, consider_threshold=0.45)
+
+    assert decision == "match"
+    assert reason_codes == []
+
+
+def test_decide_passive_liveness_in_manual_review_band() -> None:
+    decision, reason_codes = decide_passive_liveness(0.5, threshold=0.65, consider_threshold=0.45)
+
+    assert decision == "consider"
+    assert reason_codes == ["LIVENESS_MANUAL_REVIEW_BAND"]
+
+
+def test_decide_passive_liveness_below_consider_threshold() -> None:
+    decision, reason_codes = decide_passive_liveness(0.2, threshold=0.65, consider_threshold=0.45)
+
+    assert decision == "failed"
+    assert reason_codes == ["LIVENESS_BELOW_CONSIDER_THRESHOLD"]
+
+
+def test_decide_visual_deepfake_below_threshold_is_clean() -> None:
+    suspicious, reason_codes = decide_visual_deepfake(0.1, threshold=0.68)
+
+    assert suspicious is False
+    assert reason_codes == []
+
+
+def test_decide_visual_deepfake_above_threshold_is_suspicious() -> None:
+    suspicious, reason_codes = decide_visual_deepfake(0.9, threshold=0.68)
+
+    assert suspicious is True
+    assert reason_codes == ["DEEPFAKE_SUSPICIOUS_SCORE"]
+
+
+def test_summary_reason_codes_flags_document_layout_unavailable_for_cccd() -> None:
+    capabilities = {
+        "ocr": {
+            "documents": {
+                "document_front": {
+                    "execution_status": "COMPLETED",
+                    "details": {"layout": {"execution_status": "UNAVAILABLE"}},
+                },
+                "document_back": {
+                    "execution_status": "COMPLETED",
+                    "details": {"layout": {"execution_status": "UNAVAILABLE"}},
+                },
+            }
+        },
+    }
+    readiness = {"artifact_ready": True}
+
+    codes = OfflineModelAnalyzer._summary_reason_codes(capabilities, readiness, statuses=[])
+
+    assert "DOCUMENT_LAYOUT_UNAVAILABLE" in codes
+
+
+def test_summary_reason_codes_does_not_flag_document_layout_when_healthy() -> None:
+    capabilities = {
+        "ocr": {
+            "documents": {
+                "document_front": {
+                    "execution_status": "COMPLETED",
+                    "details": {"layout": {"execution_status": "COMPLETED"}},
+                },
+            }
+        },
+    }
+    readiness = {"artifact_ready": True}
+
+    codes = OfflineModelAnalyzer._summary_reason_codes(capabilities, readiness, statuses=[])
+
+    assert "DOCUMENT_LAYOUT_UNAVAILABLE" not in codes
+
+
+def test_summary_reason_codes_does_not_flag_document_layout_for_passport() -> None:
+    # Passports never populate "layout" at all - no document_layout model
+    # for TD3 pages, see EkycOrchestrator.analyze().
+    capabilities = {
+        "ocr": {
+            "documents": {
+                "passport_page": {
+                    "execution_status": "COMPLETED",
+                    "details": {"mrz": {"execution_status": "COMPLETED"}},
+                },
+            }
+        },
+    }
+    readiness = {"artifact_ready": True}
+
+    codes = OfflineModelAnalyzer._summary_reason_codes(capabilities, readiness, statuses=[])
+
+    assert "DOCUMENT_LAYOUT_UNAVAILABLE" not in codes
+
+
 def test_replay_heuristic_does_not_flag_moving_frames() -> None:
     frames = []
     for offset in range(8):
@@ -275,16 +452,17 @@ def test_model_output_separates_execution_from_review_signal() -> None:
     )
 
     assert normalized["face_match"]["execution_status"] == "COMPLETED"
-    assert normalized["face_match"]["review_signal"] == "SCORE_AVAILABLE"
+    assert normalized["face_match"]["review_signal"] == "ADVERSE_SIGNAL"
     assert normalized["face_match"]["threshold"] == {
         "value": None,
-        "approval_status": "NOT_APPROVED",
+        "consider_threshold": None,
+        "approval_status": "EVALUATION_ONLY",
     }
     assert normalized["face_match"]["details"]["matched_frames"] == 1
     assert normalized["face_match"]["details"]["aggregation"] == "MEDIAN"
     assert normalized["voice_challenge"]["review_signal"] == "CHALLENGE_MISMATCH"
     assert "VOICE_CHALLENGE_MISMATCH" in normalized["voice_challenge"]["reason_codes"]
-    assert normalized["lip_sync"]["review_signal"] == "SUSPICIOUS"
+    assert normalized["lip_sync"]["review_signal"] == "ADVERSE_SIGNAL"
 
 
 def test_model_output_marks_incomplete_active_liveness_challenge() -> None:

@@ -13,6 +13,7 @@ from app.domain.capability_ports import (
     CameraInjectionResult,
     DocumentLayoutResult,
     DocumentOcrResult,
+    DocumentQualityResult,
     FaceDetectionResult,
     FaceMatchingResult,
     LipSyncResult,
@@ -46,6 +47,19 @@ def _default_results() -> dict[str, Any]:
             class_counts={"name": 1},
             ocr_line_count=1,
             mean_ocr_confidence=0.9,
+            fields={"full_name": "FAKE NAME"},
+        ),
+        "document_quality": DocumentQualityResult(
+            status="OK",
+            engine="fake-quality",
+            blur_score=300.0,
+            glare_ratio=0.0,
+            brightness_mean=120.0,
+            contrast_score=60.0,
+            corners_detected=True,
+            corner_coverage_ratio=0.7,
+            screenshot_score=0.9,
+            defect_flags=[],
         ),
         "passport_mrz": PassportMrzResult(
             status="OK",
@@ -75,9 +89,17 @@ def _default_results() -> dict[str, Any]:
             frames_with_face=3,
             matched_frames=3,
             aggregation="median",
+            match_threshold=0.45,
+            consider_threshold=0.30,
+            decision="match",
         ),
         "passive_liveness": PassiveLivenessResult(
-            status="OK", engine="fake-liveness", live_probability=0.95
+            status="OK",
+            engine="fake-liveness",
+            live_probability=0.95,
+            threshold=0.65,
+            consider_threshold=0.45,
+            decision="match",
         ),
         "active_liveness": ActiveLivenessResult(
             status="OK",
@@ -88,7 +110,11 @@ def _default_results() -> dict[str, Any]:
             sampled_pose_count=3,
         ),
         "visual_deepfake": VisualDeepfakeResult(
-            status="OK", engine="fake-deepfake", manipulation_probability=0.05
+            status="OK",
+            engine="fake-deepfake",
+            manipulation_probability=0.05,
+            threshold=0.68,
+            suspicious=False,
         ),
         "voice_challenge": VoiceChallengeResult(
             status="OK",

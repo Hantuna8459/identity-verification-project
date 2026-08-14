@@ -16,6 +16,34 @@ It is a thin CLI around the same production code the real API uses -
 `app.adapters.analyzer.OfflineModelAnalyzer` - so results are exactly what the
 real pipeline would produce, with no DB/HTTP/session involved.
 
+## At a glance
+
+```
+fieldcheck/
+├── local_cases/                <- evidence goes IN here (gitignored)
+│   ├── my-cccd/                   one case = one subdirectory,
+│   │   ├── document_front.jpg        however many files inside it
+│   │   ├── document_back.jpg
+│   │   └── selfie_video.mp4       (optional)
+│   └── another-person/            a second case = another subdirectory
+│       ├── document_front.jpg
+│       └── document_back.jpg
+└── local_runs/                 <- results come OUT here (gitignored)
+    ├── adhoc-my-cccd-<timestamp>.json
+    └── <timestamp>/summary.json
+```
+
+- **One case folder** (however many files are inside it) -> `adhoc --case
+  fieldcheck/local_cases/my-cccd`: runs that one case, prints/saves one
+  result.
+- **Multiple case folders** -> `batch --cases-root fieldcheck/local_cases`:
+  discovers and runs every subdirectory found under the root, writes one
+  aggregated summary. There's no separate "bulk" location - it's the same
+  `local_cases/` tree, `batch` just points at the parent instead of one leaf.
+
+Everything below fills in the exact rules (recognized filenames, `case.json`,
+flags) - the tree above is the shape to hold in your head first.
+
 ## Handling real evidence safely
 
 - `local_cases/` and `local_runs/` are both gitignored (only `.gitkeep` is
@@ -77,36 +105,70 @@ pipeline has an approved decision threshold yet.
 
 ## Usage
 
-Run from `backend/` (that's where the `fieldcheck` package and its `.venv`
-live), via `uv run` so the right interpreter/deps are picked up - plain
-`python3 -m fieldcheck.cli ...` will fail with `ModuleNotFoundError` unless
-you've activated `backend/.venv` yourself:
+Both subcommands must be run from `backend/` - `fieldcheck` and its `.venv`
+live there, and `--model-dir`/`--cases-root` default to paths relative to it.
+
+### `adhoc`: run one case
+
+`adhoc` runs a single case directory through the pipeline and prints/saves
+one result.
 
 ```
 cd backend
-uv run python -m fieldcheck.cli adhoc --case fieldcheck/local_cases/my-test \
-    [--model-dir ../models] [--profile technical_demo] \
-    [--document-type CCCD] [--voice-challenge "1 2 3 4 5 6"] \
-    [--out PATH] [--json]
-
-uv run python -m fieldcheck.cli batch --cases-root fieldcheck/local_cases \
-    [--model-dir ../models] [--profile technical_demo] [--pattern 'my-*'] \
-    [--fail-fast] [--out-dir PATH] [--save-per-case] [--force]
+uv run python -m fieldcheck.cli adhoc --case fieldcheck/local_cases/<case-name> --model-dir ../models
 ```
 
-Both subcommands print `.readiness()` first, so you know upfront which
-capabilities will actually run vs. report `UNAVAILABLE` for this
-`--model-dir`/`--profile`. To see *just* readiness with no case evidence at
-all, point `--cases-root` at the (already-existing, empty) `local_cases/`
-dir itself:
+`--case` is the case directory to run (see "At a glance" above for the
+expected layout); `--model-dir` is the path to this project's model
+artifacts, constant across runs. The result prints to stdout and is also
+saved as a timestamped file under `local_runs/`.
+
+### `batch`: run every case under a directory
+
+`batch` discovers every case directory under `--cases-root` and runs them
+all, then writes one summary aggregated across every case.
 
 ```
-uv run python -m fieldcheck.cli batch --model-dir ../models --cases-root fieldcheck/local_cases
+cd backend
+uv run python -m fieldcheck.cli batch --cases-root fieldcheck/local_cases --model-dir ../models
 ```
 
-(don't point `--cases-root` at a path that doesn't exist yet - `batch`
-doesn't catch that particular failure cleanly and will dump a traceback
-after the readiness table instead of a friendly error.)
+`--cases-root` takes the *parent* directory containing case directories,
+not a single case directory.
+
+Running `batch` against an empty `local_cases/` also doubles as a
+standalone readiness check, with no evidence required - it prints the
+model-readiness table before it looks for any cases. A `--cases-root` that
+doesn't exist at all isn't handled cleanly yet: it prints a raw traceback
+after the readiness table instead of an error message.
+
+### Flag reference
+
+Every flag `adhoc` and `batch` accept, and what each does.
+
+**`adhoc`**
+
+| flag | default | description |
+|---|---|---|
+| `--case <path>` | required | The case directory to run. |
+| `--model-dir <path>` | `../models` | Path to the model artifacts directory. |
+| `--profile <name>` | `technical_demo` | Deployment profile controlling provider/model gating - `technical_demo` is the only profile this project currently defines. |
+| `--document-type <type>` | auto-detected | Overrides the document type detected from the case's evidence files (`CCCD` or `PASSPORT_TD3`). Required when a case ambiguously contains both a passport page and CCCD front/back; otherwise only needed to override `case.json`. |
+| `--voice-challenge <digits>` | from `case.json` | Overrides `case.json`'s `voice_challenge` field - the digits actually spoken in the selfie video. Without a correct value here, the `voice_challenge` capability reports a mismatch regardless of what the video contains. |
+| `--out <path>` | timestamped file under `local_runs/` | Where to write the result JSON. |
+| `--json` | off | Also print the full result JSON to stdout, in addition to the summary. |
+| `--force` | off | Allow writing output inside the git repository, outside `local_runs/`. See "Handling real evidence safely" above for why this is guarded. |
+
+**`batch`**
+
+| flag | default | description |
+|---|---|---|
+| `--cases-root <path>` | `local_cases/` | The directory containing one subdirectory per case. |
+| `--pattern <glob>` | `*` | Restricts which case directories are picked up, matched against each directory's name (e.g. `'my-*'`). |
+| `--fail-fast` | off | Stop after the first case that fails to load or run, instead of continuing through the rest. |
+| `--out-dir <path>` | timestamped directory under `local_runs/` | Where to write the summary, and (with `--save-per-case`) each case's individual result. |
+| `--save-per-case` | off | Also write each case's full result JSON, not just the aggregated summary. |
+| `--model-dir`, `--profile`, `--force` | same as `adhoc` | See above. |
 
 `batch`'s summary report walks every result's normalized contract shape
 generically (any dict carrying an `execution_status` key becomes a "signal"),

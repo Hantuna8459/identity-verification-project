@@ -28,6 +28,11 @@ class OfflineModelAnalyzer:
         max_face_match_frames: int = 12,
         replay_suspicious_threshold: float = 0.62,
         camera_injection_suspicious_threshold: float = 0.60,
+        face_match_threshold: float = 0.45,
+        face_match_consider_threshold: float = 0.30,
+        passive_liveness_threshold: float = 0.65,
+        passive_liveness_consider_threshold: float = 0.45,
+        visual_deepfake_threshold: float = 0.68,
     ) -> None:
         self._registry = registry
         self._require_models = require_models
@@ -39,6 +44,11 @@ class OfflineModelAnalyzer:
             max_face_match_frames=max_face_match_frames,
             replay_suspicious_threshold=replay_suspicious_threshold,
             camera_injection_suspicious_threshold=camera_injection_suspicious_threshold,
+            face_match_threshold=face_match_threshold,
+            face_match_consider_threshold=face_match_consider_threshold,
+            passive_liveness_threshold=passive_liveness_threshold,
+            passive_liveness_consider_threshold=passive_liveness_consider_threshold,
+            visual_deepfake_threshold=visual_deepfake_threshold,
         )
 
     def readiness(self) -> dict[str, Any]:
@@ -150,6 +160,17 @@ class OfflineModelAnalyzer:
                     output["reason_codes"] = derived
         return output
 
+    @staticmethod
+    def _decision_review_signal(decision: str) -> str:
+        """Maps the domain's 3-way match/consider/failed decision (see
+        app.domain.threshold_decisions) onto the ekyc-analysis/1.0 contract's
+        review_signal vocabulary (docs/M0_CONTRACT_GOVERNANCE_BASELINE.md)."""
+        return {
+            "match": "NO_ADVERSE_SIGNAL",
+            "consider": "INCONCLUSIVE",
+            "failed": "ADVERSE_SIGNAL",
+        }.get(decision, "INCONCLUSIVE")
+
     @classmethod
     def _normalize_capability(cls, name: str, value: Any) -> dict[str, Any]:
         if not isinstance(value, dict):
@@ -164,43 +185,57 @@ class OfflineModelAnalyzer:
             return cls._base_output(value, review_signal=execution_status)
 
         if name == "face_match":
+            decision = str(value.get("decision", "failed"))
             return cls._base_output(
                 value,
-                review_signal="SCORE_AVAILABLE",
+                review_signal=cls._decision_review_signal(decision),
                 metrics={
                     "cosine_similarity": value.get("cosine_similarity"),
                     "score_direction": "HIGHER_IS_MORE_SIMILAR",
                 },
-                threshold={"value": None, "approval_status": "NOT_APPROVED"},
+                threshold={
+                    "value": value.get("match_threshold"),
+                    "consider_threshold": value.get("consider_threshold"),
+                    "approval_status": "EVALUATION_ONLY",
+                },
                 details={
                     "sampled_frames": value.get("sampled_frames"),
                     "frames_with_face": value.get("frames_with_face"),
                     "matched_frames": value.get("matched_frames"),
                     "aggregation": value.get("aggregation"),
                 },
-                reason_codes=["FACE_MATCH_THRESHOLD_NOT_APPROVED"],
+                reason_codes=[str(code) for code in value.get("reason_codes", [])],
             )
         if name == "liveness":
+            decision = str(value.get("decision", "failed"))
             return cls._base_output(
                 value,
-                review_signal="SCORE_AVAILABLE",
+                review_signal=cls._decision_review_signal(decision),
                 metrics={
                     "live_probability": value.get("live_probability"),
                     "score_direction": "HIGHER_IS_MORE_LIVE_LIKE",
                 },
-                threshold={"value": None, "approval_status": "NOT_APPROVED"},
-                reason_codes=["LIVENESS_THRESHOLD_NOT_APPROVED"],
+                threshold={
+                    "value": value.get("threshold"),
+                    "consider_threshold": value.get("consider_threshold"),
+                    "approval_status": "EVALUATION_ONLY",
+                },
+                reason_codes=[str(code) for code in value.get("reason_codes", [])],
             )
         if name == "visual_deepfake":
+            suspicious = value.get("suspicious") is True
             return cls._base_output(
                 value,
-                review_signal="SCORE_AVAILABLE",
+                review_signal="ADVERSE_SIGNAL" if suspicious else "NO_ADVERSE_SIGNAL",
                 metrics={
                     "manipulation_probability": value.get("manipulation_probability"),
                     "score_direction": "HIGHER_IS_MORE_SUSPICIOUS",
                 },
-                threshold={"value": None, "approval_status": "NOT_APPROVED"},
-                reason_codes=["DEEPFAKE_THRESHOLD_NOT_APPROVED"],
+                threshold={
+                    "value": value.get("threshold"),
+                    "approval_status": "EVALUATION_ONLY",
+                },
+                reason_codes=[str(code) for code in value.get("reason_codes", [])],
             )
         if name == "active_liveness":
             complete = value.get("sequence_complete") is True
@@ -233,9 +268,9 @@ class OfflineModelAnalyzer:
         if name == "lip_sync":
             verdict = str(value.get("verdict", "")).lower()
             signal = (
-                "SUSPICIOUS"
+                "ADVERSE_SIGNAL"
                 if verdict == "fake"
-                else "NO_SUSPICIOUS_SIGNAL"
+                else "NO_ADVERSE_SIGNAL"
                 if verdict == "real"
                 else "INCONCLUSIVE"
             )
@@ -248,7 +283,7 @@ class OfflineModelAnalyzer:
                     "score_direction": "HIGHER_IS_MORE_SUSPICIOUS",
                 },
                 details={"model_verdict": value.get("verdict")},
-                reason_codes=["LIP_SYNC_SUSPICIOUS"] if signal == "SUSPICIOUS" else [],
+                reason_codes=["LIP_SYNC_SUSPICIOUS"] if signal == "ADVERSE_SIGNAL" else [],
             )
         if name in {"replay_attack", "camera_injection"}:
             suspicious = value.get("suspicious") is True
@@ -263,7 +298,7 @@ class OfflineModelAnalyzer:
             )
             return cls._base_output(
                 value,
-                review_signal="SUSPICIOUS" if suspicious else "NO_SUSPICIOUS_SIGNAL",
+                review_signal="ADVERSE_SIGNAL" if suspicious else "NO_ADVERSE_SIGNAL",
                 metrics={
                     **{key: value[key] for key in metric_keys if key in value},
                     "score_direction": "HIGHER_IS_MORE_SUSPICIOUS",
@@ -285,6 +320,60 @@ class OfflineModelAnalyzer:
                 reason_codes=[str(code) for code in value.get("reason_codes", [])],
             )
         return cls._base_output(value, review_signal="OBSERVED")
+
+    @classmethod
+    def _summary_reason_codes(
+        cls, capabilities: dict[str, Any], readiness: dict[str, Any], statuses: list[str]
+    ) -> list[str]:
+        """Session-level reason codes over the already-normalized capabilities
+        tree - a pure function of (capabilities, readiness, statuses) so this
+        is unit-testable without a full registry/evidence round-trip."""
+        summary_reason_codes = ["TECHNICAL_DEMO_MANUAL_REVIEW"]
+        if not readiness["artifact_ready"] or "UNAVAILABLE" in statuses:
+            summary_reason_codes.append("MODEL_UNAVAILABLE")
+        if "INCONCLUSIVE" in statuses:
+            summary_reason_codes.append("AI_RESULT_INCONCLUSIVE")
+        for capability, reason in (
+            ("replay_attack", "REPLAY_ATTACK_SUSPECTED"),
+            ("camera_injection", "CAMERA_INJECTION_SUSPECTED"),
+            ("lip_sync", "LIP_SYNC_SUSPICIOUS"),
+            ("visual_deepfake", "VISUAL_DEEPFAKE_SUSPECTED"),
+            ("face_match", "FACE_MATCH_ADVERSE_SIGNAL"),
+            ("liveness", "PASSIVE_LIVENESS_ADVERSE_SIGNAL"),
+        ):
+            signal = capabilities.get(capability, {})
+            if isinstance(signal, dict) and signal.get("review_signal") == "ADVERSE_SIGNAL":
+                summary_reason_codes.append(reason)
+        voice_challenge_signal = capabilities.get("voice_challenge", {})
+        if (
+            isinstance(voice_challenge_signal, dict)
+            and voice_challenge_signal.get("review_signal") == "CHALLENGE_MISMATCH"
+        ):
+            summary_reason_codes.append("VOICE_CHALLENGE_MISMATCH")
+        active_liveness = capabilities.get("active_liveness", {})
+        if (
+            isinstance(active_liveness, dict)
+            and active_liveness.get("review_signal") == "CHALLENGE_INCOMPLETE"
+        ):
+            summary_reason_codes.append("ACTIVE_LIVENESS_SEQUENCE_INCOMPLETE")
+        # document_layout going UNAVAILABLE already trips the generic
+        # MODEL_UNAVAILABLE check above (via _collect_statuses recursing into
+        # every nested execution_status), but that's the same catch-all any
+        # transient capability hiccup anywhere produces. Called out
+        # separately here because losing this specific model is losing all
+        # CCCD structured-field extraction (not just the document_quality
+        # corners check that also depends on it) - worth a name a reviewer
+        # can actually recognize, not just "something, somewhere failed".
+        ocr_documents = capabilities.get("ocr", {})
+        documents = ocr_documents.get("documents", {}) if isinstance(ocr_documents, dict) else {}
+        if isinstance(documents, dict) and any(
+            isinstance(document, dict)
+            and isinstance(document.get("details", {}).get("layout"), dict)
+            and document["details"]["layout"].get("execution_status") == "UNAVAILABLE"
+            for document in documents.values()
+        ):
+            summary_reason_codes.append("DOCUMENT_LAYOUT_UNAVAILABLE")
+        return summary_reason_codes
 
     @classmethod
     def normalize_capabilities(cls, capabilities: dict[str, Any]) -> dict[str, Any]:
@@ -310,7 +399,7 @@ class OfflineModelAnalyzer:
                         if key in result
                     },
                     details=cls._normalize_nested_statuses(
-                        {key: result[key] for key in ("layout", "mrz") if key in result}
+                        {key: result[key] for key in ("layout", "mrz", "quality") if key in result}
                     ),
                 )
                 for document, result in value.items()
@@ -350,6 +439,10 @@ class OfflineModelAnalyzer:
                 document["engine"] = result["engine"]
             if isinstance(result.get("mrz"), dict):
                 document["mrz_validation"] = self._normalize_nested_statuses(result["mrz"])
+            if isinstance(result.get("layout"), dict):
+                document["layout"] = self._normalize_nested_statuses(result["layout"])
+            if isinstance(result.get("quality"), dict):
+                document["quality"] = self._normalize_nested_statuses(result["quality"])
             if result.get("reason") is not None:
                 document["reason_codes"] = [str(result["reason"])]
             if result.get("error_type") is not None:
@@ -373,31 +466,7 @@ class OfflineModelAnalyzer:
         capabilities = self._orchestrator.analyze(document_type, voice_challenge, evidence)
         capabilities = self.normalize_capabilities(capabilities)
         statuses = self._collect_statuses(capabilities)
-        summary_reason_codes = ["TECHNICAL_DEMO_MANUAL_REVIEW"]
-        if not readiness["artifact_ready"] or "UNAVAILABLE" in statuses:
-            summary_reason_codes.append("MODEL_UNAVAILABLE")
-        if "INCONCLUSIVE" in statuses:
-            summary_reason_codes.append("AI_RESULT_INCONCLUSIVE")
-        for capability, reason in (
-            ("replay_attack", "REPLAY_ATTACK_SUSPECTED"),
-            ("camera_injection", "CAMERA_INJECTION_SUSPECTED"),
-            ("lip_sync", "LIP_SYNC_SUSPICIOUS"),
-        ):
-            signal = capabilities.get(capability, {})
-            if isinstance(signal, dict) and signal.get("review_signal") == "SUSPICIOUS":
-                summary_reason_codes.append(reason)
-        voice_challenge_signal = capabilities.get("voice_challenge", {})
-        if (
-            isinstance(voice_challenge_signal, dict)
-            and voice_challenge_signal.get("review_signal") == "CHALLENGE_MISMATCH"
-        ):
-            summary_reason_codes.append("VOICE_CHALLENGE_MISMATCH")
-        active_liveness = capabilities.get("active_liveness", {})
-        if (
-            isinstance(active_liveness, dict)
-            and active_liveness.get("review_signal") == "CHALLENGE_INCOMPLETE"
-        ):
-            summary_reason_codes.append("ACTIVE_LIVENESS_SEQUENCE_INCOMPLETE")
+        summary_reason_codes = self._summary_reason_codes(capabilities, readiness, statuses)
 
         if not readiness["artifact_ready"] or "UNAVAILABLE" in statuses:
             if "COMPLETED" in statuses:

@@ -27,6 +27,11 @@ def build_analyzer(settings: Settings) -> OfflineModelAnalyzer:
         max_face_match_frames=settings.max_face_match_frames,
         replay_suspicious_threshold=settings.replay_suspicious_threshold,
         camera_injection_suspicious_threshold=settings.camera_injection_suspicious_threshold,
+        face_match_threshold=settings.face_match_threshold,
+        face_match_consider_threshold=settings.face_match_consider_threshold,
+        passive_liveness_threshold=settings.passive_liveness_threshold,
+        passive_liveness_consider_threshold=settings.passive_liveness_consider_threshold,
+        visual_deepfake_threshold=settings.visual_deepfake_threshold,
     )
 
 

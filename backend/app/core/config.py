@@ -47,6 +47,18 @@ class Settings(BaseSettings):
     max_face_match_frames: int = 12
     replay_suspicious_threshold: float = 0.62
     camera_injection_suspicious_threshold: float = 0.60
+    # Copied from the reference project (C2-App-036/.env.example), which
+    # defaults to the same InsightFace buffalo_l embedding and the same HF
+    # ViT deepfake-detector family this project uses - not a blind
+    # cross-model guess. Evaluation-only per docs/M0_CONTRACT_GOVERNANCE_
+    # BASELINE.md and AGENTS.md's open decisions list (production
+    # auto-approve/reject policy is not yet decided) - see analyzer.py's
+    # approval_status: "EVALUATION_ONLY" on these three capabilities.
+    face_match_threshold: float = 0.45
+    face_match_consider_threshold: float = 0.30
+    passive_liveness_threshold: float = 0.65
+    passive_liveness_consider_threshold: float = 0.45
+    visual_deepfake_threshold: float = 0.68
     demo_ocr_rerun_enabled: bool = False
     capability_provider_timeout_seconds: float = 30.0
     capability_circuit_failure_threshold: int = 3

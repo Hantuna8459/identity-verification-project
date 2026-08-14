@@ -136,12 +136,16 @@ class FaceMatchingRequest:
     live_candidates: list[tuple[np.ndarray, FaceDetectionResult]]
     max_frames: int
     sampled_frame_count: int
+    match_threshold: float
+    consider_threshold: float
 
 
 @dataclass(frozen=True)
 class PassiveLivenessRequest:
     image: np.ndarray
     bbox: np.ndarray
+    live_threshold: float
+    consider_threshold: float
 
 
 @dataclass(frozen=True)
@@ -153,6 +157,7 @@ class ActiveLivenessRequest:
 class VisualDeepfakeRequest:
     image: np.ndarray
     bbox: np.ndarray
+    suspicious_threshold: float
 
 
 @dataclass(frozen=True)
@@ -170,6 +175,7 @@ class LipSyncRequest:
 @dataclass(frozen=True)
 class DocumentQualityRequest:
     image: np.ndarray
+    layout_corners: dict[str, list[float]] | None = None
 
 
 @dataclass(frozen=True)
@@ -218,6 +224,8 @@ class DocumentLayoutResult:
     class_counts: dict[str, int]
     ocr_line_count: int
     mean_ocr_confidence: float | None = None
+    fields: dict[str, str] = field(default_factory=dict)
+    corners: dict[str, list[float]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -239,6 +247,10 @@ class FaceMatchingResult:
     frames_with_face: int
     matched_frames: int
     aggregation: str
+    match_threshold: float
+    consider_threshold: float
+    decision: str  # "match" | "consider" | "failed" - see app.domain.threshold_decisions
+    reason_codes: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -246,6 +258,10 @@ class PassiveLivenessResult:
     status: str
     engine: str
     live_probability: float
+    threshold: float
+    consider_threshold: float
+    decision: str  # "match" | "consider" | "failed" - see app.domain.threshold_decisions
+    reason_codes: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -264,6 +280,9 @@ class VisualDeepfakeResult:
     status: str
     engine: str
     manipulation_probability: float
+    threshold: float
+    suspicious: bool
+    reason_codes: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -291,7 +310,12 @@ class DocumentQualityResult:
     blur_score: float
     glare_ratio: float
     brightness_mean: float
+    contrast_score: float
+    corners_detected: bool
+    screenshot_score: float
     defect_flags: list[str]
+    corner_coverage_ratio: float | None = None
+    corner_source: str = "none"
     reason_codes: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 

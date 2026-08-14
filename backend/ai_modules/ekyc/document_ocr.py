@@ -30,7 +30,11 @@ class LocalOcr:
         return boxes if boxes is not None else np.empty((0, 4, 2))
 
     def read_array(self, image: np.ndarray) -> tuple[list[str], list[float]]:
-        output: Any = self._engine(image)
+        # Explicit flags, not defaults: RapidOCR.update_params() ignores None
+        # and otherwise keeps whatever use_det/use_cls/use_rec the engine was
+        # last called with - detect_boxes() below leaves it in det-only mode,
+        # which would silently starve this call of recognition output.
+        output: Any = self._engine(image, use_det=True, use_cls=True, use_rec=True)
         return list(output.txts or ()), [float(score) for score in (output.scores or ())]
 
     def read(self, payload: bytes) -> tuple[list[str], list[float]]:

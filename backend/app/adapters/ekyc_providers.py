@@ -55,6 +55,11 @@ from app.domain.capability_ports import (
     VoiceChallengeResult,
 )
 from app.domain.face_matching import aggregate_face_similarities, select_face_match_candidates
+from app.domain.threshold_decisions import (
+    decide_face_match,
+    decide_passive_liveness,
+    decide_visual_deepfake,
+)
 
 ADAPTER_SPEC_VERSION = "ekyc-provider-adapter/1"
 
@@ -102,12 +107,15 @@ class YoloCccdLayoutProvider:
     model_id: str | None = "cccd-layout-yolov11"
     adapter_spec_version = ADAPTER_SPEC_VERSION
 
-    def __init__(self, engine: CccdLayoutOcr, ocr: LocalOcr) -> None:
+    def __init__(self, engine: CccdLayoutOcr, ocr: LocalOcr | VietOcr) -> None:
         self._engine = engine
         self._ocr = ocr
 
     def run(self, request: DocumentLayoutRequest) -> DocumentLayoutResult:
-        raw = self._engine.inspect(request.payload, self._ocr.read_array)
+        region_ocr_engine_name = "VietOCR" if isinstance(self._ocr, VietOcr) else "RapidOCR"
+        raw = self._engine.inspect(
+            request.payload, self._ocr.read_array, region_ocr_engine_name=region_ocr_engine_name
+        )
         return DocumentLayoutResult(
             status=raw["status"],
             engine=raw["engine"],
@@ -115,6 +123,8 @@ class YoloCccdLayoutProvider:
             class_counts=raw["class_counts"],
             ocr_line_count=raw["ocr_line_count"],
             mean_ocr_confidence=raw.get("mean_ocr_confidence"),
+            fields=raw.get("fields", {}),
+            corners=raw.get("corners", {}),
         )
 
 
@@ -197,6 +207,9 @@ class MedianFaceMatchingProvider:
             frames_with_embedding += 1
             similarities.append(float(np.dot(document_embedding, live_embedding)))
         similarity = aggregate_face_similarities(similarities)
+        decision, reason_codes = decide_face_match(
+            similarity, request.match_threshold, request.consider_threshold
+        )
         return FaceMatchingResult(
             status="OK",
             engine="insightface-buffalo_l/SCRFD-10G+ArcFace-R50",
@@ -205,6 +218,10 @@ class MedianFaceMatchingProvider:
             frames_with_face=len(request.live_candidates),
             matched_frames=frames_with_embedding,
             aggregation="MEDIAN",
+            match_threshold=request.match_threshold,
+            consider_threshold=request.consider_threshold,
+            decision=decision,
+            reason_codes=reason_codes,
         )
 
 
@@ -218,8 +235,17 @@ class MiniFasNetLivenessProvider:
 
     def run(self, request: PassiveLivenessRequest) -> PassiveLivenessResult:
         score = self._engine.liveness(request.image, request.bbox)
+        decision, reason_codes = decide_passive_liveness(
+            score, request.live_threshold, request.consider_threshold
+        )
         return PassiveLivenessResult(
-            status="OK", engine="MiniFASNetV2", live_probability=round(score, 6)
+            status="OK",
+            engine="MiniFASNetV2",
+            live_probability=round(score, 6),
+            threshold=request.live_threshold,
+            consider_threshold=request.consider_threshold,
+            decision=decision,
+            reason_codes=reason_codes,
         )
 
 
@@ -251,10 +277,14 @@ class DeepfakeDetectorProvider:
 
     def run(self, request: VisualDeepfakeRequest) -> VisualDeepfakeResult:
         probability = self._engine.deepfake(request.image, request.bbox)
+        suspicious, reason_codes = decide_visual_deepfake(probability, request.suspicious_threshold)
         return VisualDeepfakeResult(
             status="OK",
             engine="Deep-Fake-Detector-v2-Q4",
             manipulation_probability=round(probability, 6),
+            threshold=request.suspicious_threshold,
+            suspicious=suspicious,
+            reason_codes=reason_codes,
         )
 
 
@@ -302,13 +332,18 @@ class HeuristicDocumentQualityProvider:
     adapter_spec_version = ADAPTER_SPEC_VERSION
 
     def run(self, request: DocumentQualityRequest) -> DocumentQualityResult:
-        raw = inspect_document_quality(request.image)
+        raw = inspect_document_quality(request.image, layout_corners=request.layout_corners)
         return DocumentQualityResult(
             status=raw["status"],
             engine=raw["engine"],
             blur_score=raw["blur_score"],
             glare_ratio=raw["glare_ratio"],
             brightness_mean=raw["brightness_mean"],
+            contrast_score=raw["contrast_score"],
+            corners_detected=raw["corners_detected"],
+            corner_coverage_ratio=raw["corner_coverage_ratio"],
+            corner_source=raw["corner_source"],
+            screenshot_score=raw["screenshot_score"],
             defect_flags=raw["defect_flags"],
             reason_codes=raw["reason_codes"],
             warnings=raw["warnings"],
@@ -382,10 +417,11 @@ def build_capability_registry(settings: Settings) -> CapabilityRegistry:
     """
     manifest = ManifestReader(settings.model_dir, settings.model_profile)
 
-    # document_ocr and document_layout genuinely share one LocalOcr instance
-    # (layout does per-region OCR through it); face_embedding is shared
-    # between the face_embedding and face_matching registrations. Every other
-    # engine below now has exactly one consumer, since face detection/
+    # document_ocr and document_layout share OCR engines (layout does
+    # per-region recognition through whichever one layout_ocr_engine() picks,
+    # itself built on the same shared LocalOcr detector VietOcr uses); face_embedding
+    # is shared between the face_embedding and face_matching registrations.
+    # Every other engine below now has exactly one consumer, since face detection/
     # embedding and liveness/deepfake were split into independent
     # single-model classes - no more sharing needed for those.
     _engines: dict[str, Any] = {}
@@ -399,6 +435,19 @@ def build_capability_registry(settings: Settings) -> CapabilityRegistry:
         if "vietocr" not in _engines:
             _engines["vietocr"] = VietOcr(settings.model_dir, shared_ocr())
         return _engines["vietocr"]
+
+    def layout_ocr_engine() -> LocalOcr | VietOcr:
+        """document_layout's field-crop OCR should track document_ocr's own
+        primary/fallback semantics (manifest: vietocr-vgg-transformer is "the
+        real document_ocr primary across app/benchmark/fieldcheck", rapidocr
+        the configured secondary) - plain RapidOCR drops Vietnamese
+        diacritics VietOCR gets right (e.g. "Ngo Quyen" -> "Ngo Quyn" on a
+        cropped field). Falls back to RapidOCR if vietocr's weights aren't
+        available in this profile/scope, same as document_ocr's own chain."""
+        try:
+            return shared_vietocr()
+        except FileNotFoundError:
+            return shared_ocr()
 
     def embedding_provider() -> ArcFaceEmbeddingProvider:
         if "embedding_provider" not in _engines:
@@ -427,7 +476,9 @@ def build_capability_registry(settings: Settings) -> CapabilityRegistry:
         "cccd-layout-yolov11": ProviderRegistration(
             provider_id="cccd-layout-yolov11",
             capability="document_layout",
-            factory=lambda: YoloCccdLayoutProvider(CccdLayoutOcr(settings.model_dir), shared_ocr()),
+            factory=lambda: YoloCccdLayoutProvider(
+                CccdLayoutOcr(settings.model_dir), layout_ocr_engine()
+            ),
             model_id="cccd-layout-yolov11",
             adapter_spec_version=ADAPTER_SPEC_VERSION,
             config_version=CAPABILITY_PROVIDER_CONFIG_VERSION,

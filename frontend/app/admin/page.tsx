@@ -40,6 +40,12 @@ type OcrRunResult = {
   documents: Record<string, OcrDocumentResult>;
 };
 
+type Readiness = {
+  artifact_ready: boolean;
+  manifest: boolean;
+  invalid: string[];
+};
+
 const capabilityLabels: Record<string, string> = {
   ocr: "OCR giấy tờ",
   face_match: "Đối chiếu khuôn mặt",
@@ -78,13 +84,35 @@ const metricLabels: Record<string, string> = {
 };
 
 type ModelMetric = { key: string; label: string; value: string };
+type ThresholdSummary = { value: string; considerThreshold: string | null; approvalStatus: string };
 type CapabilitySummary = {
   executionStatus: string;
   reviewSignal: string;
   metrics: ModelMetric[];
   reasonCodes: string[];
   engine?: string;
+  threshold: ThresholdSummary | null;
 };
+
+function formatThresholdNumber(value: unknown): string {
+  if (typeof value !== "number") return "Chưa cấu hình";
+  return value.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function extractThreshold(record: Record<string, unknown>): ThresholdSummary | null {
+  const raw = record.threshold;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const thresholdRecord = raw as Record<string, unknown>;
+  if (!("value" in thresholdRecord) && !("approval_status" in thresholdRecord)) return null;
+  const approvalStatus = String(thresholdRecord.approval_status ?? "NOT_APPROVED");
+  return {
+    value: formatThresholdNumber(thresholdRecord.value),
+    considerThreshold:
+      "consider_threshold" in thresholdRecord ? formatThresholdNumber(thresholdRecord.consider_threshold) : null,
+    approvalStatus:
+      approvalStatus === "EVALUATION_ONLY" ? "Chỉ dùng demo" : approvalStatus === "NOT_APPROVED" ? "Chưa phê duyệt" : approvalStatus,
+  };
+}
 
 type ProfileResultSummary = {
   totalCapabilities: number;
@@ -111,25 +139,28 @@ function formatMetric(key: string, value: unknown): ModelMetric {
 }
 
 function signalTone(value: string): string {
-  if (["SUSPICIOUS", "CHALLENGE_MISMATCH", "INVALID_MODEL_OUTPUT"].includes(value)) return "danger";
+  if (["ADVERSE_SIGNAL", "CHALLENGE_MISMATCH", "INVALID_MODEL_OUTPUT"].includes(value)) return "danger";
   if (["CHALLENGE_INCOMPLETE", "INCONCLUSIVE", "UNAVAILABLE"].includes(value)) return "warning";
-  if (["NO_SUSPICIOUS_SIGNAL", "CHALLENGE_MATCH", "CHALLENGE_COMPLETE", "TEXT_DETECTED"].includes(value)) return "success";
+  if (["NO_ADVERSE_SIGNAL", "CHALLENGE_MATCH", "CHALLENGE_COMPLETE", "TEXT_DETECTED"].includes(value)) return "success";
   return "neutral";
 }
 
 function capabilitySummary(value: unknown, capability: string): CapabilitySummary {
-  if (!value || typeof value !== "object") return { executionStatus: "ERROR", reviewSignal: "INVALID_MODEL_OUTPUT", metrics: [], reasonCodes: ["INVALID_MODEL_OUTPUT"] };
+  if (!value || typeof value !== "object") return { executionStatus: "ERROR", reviewSignal: "INVALID_MODEL_OUTPUT", metrics: [], reasonCodes: ["INVALID_MODEL_OUTPUT"], threshold: null };
   const record = value as Record<string, unknown>;
   const metrics: ModelMetric[] = [];
   function collect(child: unknown, parent = ""): void {
     if (!child || typeof child !== "object" || Array.isArray(child)) return;
     for (const [key, nested] of Object.entries(child)) {
-      if (["status", "execution_status", "review_signal", "reason_codes", "engine", "score_direction", "warnings"].includes(key)) continue;
+      // "threshold" gets its own dedicated summary field (see extractThreshold)
+      // instead of being folded into the generic metrics bucket.
+      if (["status", "execution_status", "review_signal", "reason_codes", "engine", "score_direction", "warnings", "threshold"].includes(key)) continue;
       if (nested && typeof nested === "object") collect(nested, key);
-      else if (parent === "metrics" || parent === "details" || parent === "threshold" || key in metricLabels) metrics.push(formatMetric(key, nested));
+      else if (parent === "metrics" || parent === "details" || key in metricLabels) metrics.push(formatMetric(key, nested));
     }
   }
   collect(record);
+  const threshold = extractThreshold(record);
   const legacyStatuses: string[] = [];
   function collectLegacyStatuses(child: unknown): void {
     if (!child || typeof child !== "object" || Array.isArray(child)) return;
@@ -145,8 +176,8 @@ function capabilitySummary(value: unknown, capability: string): CapabilitySummar
     : legacyStatus === "OK" ? "COMPLETED" : legacyStatus ?? "ERROR";
   let reviewSignal = typeof record.review_signal === "string" ? record.review_signal : "INCONCLUSIVE";
   if (typeof record.review_signal !== "string" && executionStatus === "COMPLETED") {
-    if (record.suspicious === true || String(record.verdict ?? "").toLowerCase() === "fake") reviewSignal = "SUSPICIOUS";
-    else if (["replay_attack", "camera_injection"].includes(capability)) reviewSignal = "NO_SUSPICIOUS_SIGNAL";
+    if (record.suspicious === true || String(record.verdict ?? "").toLowerCase() === "fake") reviewSignal = "ADVERSE_SIGNAL";
+    else if (["replay_attack", "camera_injection"].includes(capability)) reviewSignal = "NO_ADVERSE_SIGNAL";
     else if (capability === "active_liveness") reviewSignal = record.sequence_complete === true ? "CHALLENGE_COMPLETE" : "CHALLENGE_INCOMPLETE";
     else if (capability === "voice_challenge") reviewSignal = Number(record.similarity) === 1 && Number(record.recognized_digit_count) === Number(record.challenge_length) ? "CHALLENGE_MATCH" : "CHALLENGE_MISMATCH";
     else if (capability === "ocr") reviewSignal = "TEXT_DETECTED";
@@ -163,6 +194,7 @@ function capabilitySummary(value: unknown, capability: string): CapabilitySummar
     metrics: uniqueMetrics,
     reasonCodes,
     engine: typeof record.engine === "string" ? record.engine : undefined,
+    threshold,
   };
 }
 
@@ -176,7 +208,7 @@ function profileResultSummary(analysis: Record<string, unknown> | null): Profile
     .filter(([capability]) => capability !== "ocr")
     .map(([capability, value]) => capabilitySummary(value, capability));
   const attentionSignals = new Set([
-    "SUSPICIOUS",
+    "ADVERSE_SIGNAL",
     "CHALLENGE_MISMATCH",
     "CHALLENGE_INCOMPLETE",
     "INCONCLUSIVE",
@@ -204,6 +236,7 @@ export default function AdminPage() {
   const [ocrResult, setOcrResult] = useState<OcrRunResult | null>(null);
   const [ocrBusy, setOcrBusy] = useState(false);
   const [ocrError, setOcrError] = useState("");
+  const [readiness, setReadiness] = useState<Readiness | null>(null);
 
 
   async function loadReviews(authToken = token) {
@@ -216,6 +249,12 @@ export default function AdminPage() {
       setReviews(data);
       setAuthenticated(true);
       window.sessionStorage.setItem("vid-reviewer-token", authToken);
+      // Best-effort: model/artifact readiness is always real here (unlike
+      // /utils/health-check, which hides it behind require_models) - a
+      // failed fetch shouldn't block login over a secondary status banner.
+      api<Readiness>("/admin/readiness", { headers: { Authorization: `Bearer ${authToken}` } })
+        .then(setReadiness)
+        .catch(() => setReadiness(null));
     } catch (reason) {
       setAuthenticated(false);
       setError(reason instanceof Error ? reason.message : "Không thể đăng nhập.");
@@ -326,6 +365,15 @@ export default function AdminPage() {
           <div className="reviewerChip"><i>RV</i><span><strong>Kiểm duyệt viên</strong><small>Phiên development</small></span></div>
         </header>
 
+        {readiness && (!readiness.artifact_ready || readiness.invalid.length > 0) && (
+          <div className="errorBox" role="alert">
+            <strong>Model chưa sẵn sàng:</strong> {readiness.invalid.length > 0
+              ? readiness.invalid.join(", ")
+              : "một hoặc nhiều model artifact không hợp lệ."}
+            {" "}Các capability liên quan sẽ tự động fallback hoặc báo UNAVAILABLE cho tới khi khắc phục.
+          </div>
+        )}
+
         <div className="metricGrid">
           <article><span>Chờ kiểm duyệt</span><strong>{reviews.length}</strong><small>Cần xử lý</small></article>
           <article><span>Đang xử lý</span><strong>0</strong><small>Pipeline offline</small></article>
@@ -424,6 +472,13 @@ export default function AdminPage() {
                             <StatusPill value={summary.reviewSignal} />
                           </div>
                           {summary.reviewSignal === "THRESHOLD_NOT_APPROVED" && <p className="modelInterpretation">Chưa có ngưỡng được benchmark và phê duyệt để kết luận điểm này là tốt hay xấu.</p>}
+                          {summary.threshold && (
+                            <p className="modelInterpretation">
+                              Ngưỡng: {summary.threshold.value}
+                              {summary.threshold.considerThreshold && ` (ngưỡng xem xét thủ công: ${summary.threshold.considerThreshold})`}
+                              {" · "}{summary.threshold.approvalStatus}
+                            </p>
+                          )}
                           {summary.metrics.length > 0 && (
                             <details className="modelTechnicalDetails">
                               <summary>Chi tiết kỹ thuật</summary>
