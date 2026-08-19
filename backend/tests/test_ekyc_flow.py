@@ -199,6 +199,82 @@ def test_demo_ocr_rerun_decrypts_only_document_evidence_without_persisting(
     assert "SYNTHETIC OCR TEXT" not in str(rerun_events[0])
 
 
+def test_review_detail_masks_pii_and_reveal_unmasks_with_audit(
+    client: TestClient, monkeypatch
+) -> None:
+    def fake_analyze(self, session_id, document_type, voice_challenge, evidence):
+        return {
+            "contract_version": "ekyc-analysis/1.0",
+            "session_id": str(session_id),
+            "execution_status": "COMPLETED",
+            "review_signal": "MANUAL_REVIEW_REQUIRED",
+            "capabilities": {
+                "ocr": {
+                    "execution_status": "COMPLETED",
+                    "documents": {
+                        "document_front": {
+                            "execution_status": "COMPLETED",
+                            "details": {
+                                "layout": {
+                                    "execution_status": "COMPLETED",
+                                    "fields": {
+                                        "full_name": "NGUYEN VAN A",
+                                        "id_number": "012345678912",
+                                        "date_of_birth": "01/01/1990",
+                                    },
+                                    "parsed_fields": {
+                                        "full_name": "NGUYEN VAN A",
+                                        "id_number": "012345678912",
+                                        "date_of_birth": "01/01/1990",
+                                    },
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+            "summary_reason_codes": ["TECHNICAL_DEMO_MANUAL_REVIEW"],
+        }
+
+    monkeypatch.setattr(OfflineModelAnalyzer, "analyze", fake_analyze)
+    flow = create_claimed_session(client)
+    capture_headers = {"Authorization": f"Bearer {flow['capture_token']}"}
+    client.post("/api/v2/ekyc/capture/voice-challenge", headers=capture_headers)
+    upload(client, flow["capture_token"], "DOCUMENT_FRONT", "image/jpeg")
+    upload(client, flow["capture_token"], "DOCUMENT_BACK", "image/jpeg")
+    upload(client, flow["capture_token"], "SELFIE_VIDEO", "video/webm")
+    submitted = client.post("/api/v2/ekyc/capture/submit", headers=capture_headers)
+    assert submitted.json()["stage"] == "MANUAL_REVIEW"
+
+    detail = client.get(f"/api/v2/reviews/{flow['session_id']}", headers=REVIEWER_HEADERS)
+    assert detail.status_code == 200
+    assert "NGUYEN VAN A" not in detail.text
+    assert "012345678912" not in detail.text
+    front_fields = detail.json()["analysis"]["capabilities"]["ocr"]["documents"]["document_front"][
+        "details"
+    ]["layout"]["fields"]
+    assert front_fields["full_name"] != "NGUYEN VAN A"
+    assert front_fields["id_number"].endswith("8912")
+    assert front_fields["date_of_birth"] == "**/**/1990"
+
+    denied = client.post(f"/api/v2/reviews/{flow['session_id']}/reveal")
+    assert denied.status_code == 401
+
+    revealed = client.post(
+        f"/api/v2/reviews/{flow['session_id']}/reveal", headers=REVIEWER_HEADERS
+    )
+    assert revealed.status_code == 200, revealed.text
+    assert revealed.headers["cache-control"] == "no-store"
+    assert (
+        revealed.json()["documents"]["document_front"]["fields"]["full_name"] == "NGUYEN VAN A"
+    )
+
+    events = client.get("/api/v2/admin/audit-events", headers=REVIEWER_HEADERS).json()
+    reveal_events = [event for event in events if event["action"] == "review.reveal_sensitive"]
+    assert len(reveal_events) == 1
+    assert "NGUYEN VAN A" not in str(reveal_events[0])
+
+
 def test_passport_requires_single_td3_page(client: TestClient) -> None:
     flow = create_claimed_session(client, "PASSPORT_TD3")
     capture_headers = {"Authorization": f"Bearer {flow['capture_token']}"}

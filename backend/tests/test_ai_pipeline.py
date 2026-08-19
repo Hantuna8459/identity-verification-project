@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import importlib.util
 import json
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pytest
+from support.fake_registry import build_fake_registry
 
 from ai_modules.ekyc.active_liveness import inspect_head_turn_sequence
 from ai_modules.ekyc.camera_injection import inspect_camera_injection
@@ -15,9 +17,10 @@ from ai_modules.ekyc.replay_attack import inspect_replay_attack
 from app.adapters.analyzer import OfflineModelAnalyzer
 from app.adapters.capability_registry import CapabilityRegistry
 from app.adapters.manifest import ManifestReader
-from app.domain.capability_ports import FaceDetectionResult
-from app.domain.document_fields import parse_layout_field, parse_layout_fields
+from app.domain.capability_ports import DocumentLayoutResult, FaceDetectionResult
+from app.domain.document_fields import is_cccd_expired, parse_layout_field, parse_layout_fields
 from app.domain.face_matching import aggregate_face_similarities, select_face_match_candidates
+from app.domain.ports import EvidencePayload
 from app.domain.threshold_decisions import (
     decide_face_match,
     decide_passive_liveness,
@@ -50,6 +53,41 @@ def test_icao_td3_check_digits_are_valid_without_exposing_mrz() -> None:
     assert result["status"] == "OK"
     assert result["all_check_digits_valid"] is True
     assert "lines" not in result
+
+
+def test_icao_td3_expired_flag_decodes_two_digit_year_without_exposing_the_date() -> None:
+    # Known ICAO 9303 sample - expiry field "120415" decodes to 2012-04-15.
+    lines = [
+        "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<",
+        "L898902C36UTO7408122F1204159ZE184226B<<<<<10",
+    ]
+
+    past_expiry = inspect_td3(lines, today=date(2015, 6, 1))
+    still_valid = inspect_td3(lines, today=date(2010, 6, 1))
+
+    assert past_expiry["expired"] is True
+    assert still_valid["expired"] is False
+    assert "expiry_date" not in past_expiry
+    assert "expiry_date" not in still_valid
+
+
+def test_icao_td3_expired_is_none_when_expiry_check_digit_is_invalid() -> None:
+    lines = [
+        "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<",
+        "L898902C36UTO7408122F1204158ZE184226B<<<<<10",
+    ]
+
+    result = inspect_td3(lines, today=date(2015, 6, 1))
+
+    assert result["check_digits"]["expiry_date"] is False
+    assert result["expired"] is None
+
+
+def test_icao_td3_expired_is_none_when_mrz_not_found() -> None:
+    result = inspect_td3(["not an mrz line"])
+
+    assert result["mrz_detected"] is False
+    assert result["expired"] is None
 
 
 def test_analyzer_readiness_checks_every_grouped_artifact(tmp_path: Path) -> None:
@@ -280,6 +318,19 @@ def test_parse_layout_fields_applies_per_field_rules_to_a_whole_dict() -> None:
     assert parsed == {"sex": "Nam", "issue_date": "29/09/2022"}
 
 
+def test_is_cccd_expired_flags_a_past_date() -> None:
+    assert is_cccd_expired({"expiry_date": "01/01/2000"}, today=date(2026, 8, 17)) is True
+
+
+def test_is_cccd_expired_is_false_for_a_future_date() -> None:
+    assert is_cccd_expired({"expiry_date": "01/01/2099"}, today=date(2026, 8, 17)) is False
+
+
+def test_is_cccd_expired_is_none_without_a_parsed_expiry_date() -> None:
+    assert is_cccd_expired({}) is None
+    assert is_cccd_expired({"expiry_date": "Có giá trị đến / Date of expiry"}) is None
+
+
 def test_decide_face_match_above_threshold_matches_with_no_reason_codes() -> None:
     decision, reason_codes = decide_face_match(0.5, match_threshold=0.45, consider_threshold=0.30)
 
@@ -394,6 +445,97 @@ def test_summary_reason_codes_does_not_flag_document_layout_for_passport() -> No
     codes = OfflineModelAnalyzer._summary_reason_codes(capabilities, readiness, statuses=[])
 
     assert "DOCUMENT_LAYOUT_UNAVAILABLE" not in codes
+
+
+def test_summary_reason_codes_flags_document_expired_from_cccd_layout() -> None:
+    capabilities = {
+        "ocr": {
+            "documents": {
+                "document_front": {
+                    "execution_status": "COMPLETED",
+                    "details": {"layout": {"execution_status": "COMPLETED", "expired": True}},
+                },
+            }
+        },
+    }
+    readiness = {"artifact_ready": True}
+
+    codes = OfflineModelAnalyzer._summary_reason_codes(capabilities, readiness, statuses=[])
+
+    assert "DOCUMENT_EXPIRED" in codes
+
+
+def test_summary_reason_codes_flags_document_expired_from_passport_mrz() -> None:
+    capabilities = {
+        "ocr": {
+            "documents": {
+                "passport_page": {
+                    "execution_status": "COMPLETED",
+                    "details": {"mrz": {"execution_status": "COMPLETED", "expired": True}},
+                },
+            }
+        },
+    }
+    readiness = {"artifact_ready": True}
+
+    codes = OfflineModelAnalyzer._summary_reason_codes(capabilities, readiness, statuses=[])
+
+    assert "DOCUMENT_EXPIRED" in codes
+
+
+def test_summary_reason_codes_does_not_flag_expired_when_unknown_or_valid() -> None:
+    capabilities = {
+        "ocr": {
+            "documents": {
+                "document_front": {
+                    "execution_status": "COMPLETED",
+                    "details": {"layout": {"execution_status": "COMPLETED", "expired": None}},
+                },
+                "document_back": {
+                    "execution_status": "COMPLETED",
+                    "details": {"layout": {"execution_status": "COMPLETED", "expired": False}},
+                },
+            }
+        },
+    }
+    readiness = {"artifact_ready": True}
+
+    codes = OfflineModelAnalyzer._summary_reason_codes(capabilities, readiness, statuses=[])
+
+    assert "DOCUMENT_EXPIRED" not in codes
+
+
+def test_analyze_document_flags_expired_cccd_end_to_end(tmp_path: Path) -> None:
+    """A CCCD whose YOLO-detected expiry field OCRs to a past date should
+    come out of the real orchestrator -> analyzer pipeline (not just the
+    unit-tested pieces) with details.layout.expired set."""
+    registry = build_fake_registry(
+        tmp_path,
+        overrides={
+            "document_layout": DocumentLayoutResult(
+                status="OK",
+                engine="fake-layout",
+                region_count=1,
+                class_counts={"expiry": 1},
+                ocr_line_count=1,
+                mean_ocr_confidence=0.9,
+                fields={"expiry_date": "Có giá trị đến / Date of expiry: 01/01/2000"},
+            )
+        },
+    )
+    analyzer = OfflineModelAnalyzer(registry, require_models=False, profile="technical_demo")
+
+    result = analyzer.analyze_document(
+        "CCCD",
+        [
+            EvidencePayload("DOCUMENT_FRONT", "image/jpeg", b"arbitrary-bytes-ocr-is-faked"),
+            EvidencePayload("DOCUMENT_BACK", "image/jpeg", b"arbitrary-bytes-ocr-is-faked"),
+        ],
+    )
+
+    layout = result["documents"]["document_front"]["layout"]
+    assert layout["parsed_fields"]["expiry_date"] == "01/01/2000"
+    assert layout["expired"] is True
 
 
 def test_replay_heuristic_does_not_flag_moving_frames() -> None:

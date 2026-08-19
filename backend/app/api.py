@@ -29,6 +29,7 @@ from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.domain.capability_ports import DocumentQualityRequest
 from app.domain.models import AuditEvent, EkycSession, Evidence, Handoff, ReviewTask
+from app.domain.pii_masking import mask_analysis
 from app.domain.schemas import (
     ClaimRequest,
     ClaimResponse,
@@ -430,7 +431,7 @@ def review_detail(
             "reason_codes": task.reason_codes,
             "notes": task.notes,
         },
-        "analysis": item.analysis,
+        "analysis": mask_analysis(item.analysis),
         "demo_capabilities": {
             "ocr_rerun": settings.demo_ocr_rerun_enabled
             and settings.model_profile == "technical_demo"
@@ -461,6 +462,21 @@ def rerun_review_ocr(
         return core.rerun_document_ocr(session_id, reviewer)
     except PermissionError as exc:
         raise HTTPException(status_code=404, detail="Demo OCR rerun is unavailable") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/reviews/{session_id}/reveal")
+def reveal_review_fields(
+    session_id: uuid.UUID,
+    response: Response,
+    core: Annotated[EkycService, Depends(service)],
+    reviewer: Annotated[str, Depends(require_reviewer)],
+) -> dict[str, Any]:
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
+    try:
+        return core.reveal_document_fields(session_id, reviewer)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 

@@ -145,6 +145,7 @@ class IcaoTd3MrzProvider:
             all_check_digits_valid=raw["all_check_digits_valid"],
             line_lengths=raw.get("line_lengths"),
             check_digits=raw.get("check_digits"),
+            expired=raw.get("expired"),
         )
 
 

@@ -407,6 +407,20 @@ class OfflineModelAnalyzer:
             for document in documents.values()
         ):
             summary_reason_codes.append("DOCUMENT_LAYOUT_UNAVAILABLE")
+
+        def _expired(document: Any) -> bool:
+            if not isinstance(document, dict) or not isinstance(document.get("details"), dict):
+                return False
+            details = document["details"]
+            return any(
+                isinstance(details.get(key), dict) and details[key].get("expired") is True
+                for key in ("layout", "mrz")
+            )
+
+        if isinstance(documents, dict) and any(
+            _expired(document) for document in documents.values()
+        ):
+            summary_reason_codes.append("DOCUMENT_EXPIRED")
         return summary_reason_codes
 
     @classmethod

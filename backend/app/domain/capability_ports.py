@@ -249,6 +249,7 @@ class PassportMrzResult:
     all_check_digits_valid: bool
     line_lengths: list[int] | None = None
     check_digits: dict[str, bool] | None = None
+    expired: bool | None = None
 
 
 @dataclass(frozen=True)

@@ -32,7 +32,7 @@ from app.domain.capability_ports import (
     VisualDeepfakeRequest,
     VoiceChallengeRequest,
 )
-from app.domain.document_fields import parse_layout_fields
+from app.domain.document_fields import is_cccd_expired, parse_layout_fields
 from app.domain.face_matching import select_face_match_candidates
 
 
@@ -128,6 +128,7 @@ class EkycOrchestrator:
         `parsed_fields` via the rule-based (no-LLM) domain parser."""
         layout_result = self._run("document_layout", DocumentLayoutRequest(payload))
         layout_result["parsed_fields"] = parse_layout_fields(layout_result.get("fields", {}))
+        layout_result["expired"] = is_cccd_expired(layout_result["parsed_fields"])
         return layout_result
 
     def analyze_ocr(self, document_type: str, evidence: list[Any]) -> dict[str, Any]:

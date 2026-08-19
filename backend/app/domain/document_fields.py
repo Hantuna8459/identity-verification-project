@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import date
 
 # Pure text cleanup over DocumentLayoutResult.fields (the normalized
 # contract from ai_modules.ekyc.document_layout), not a model adapter -
@@ -13,6 +14,7 @@ import re
 
 _DATE_FIELDS = frozenset({"date_of_birth", "issue_date", "expiry_date"})
 _DATE_RE = re.compile(r"\d{1,2}/\d{1,2}/\d{4}")
+_DATE_COMPONENTS_RE = re.compile(r"^(\d{1,2})/(\d{1,2})/(\d{4})$")
 _ID_RE = re.compile(r"\d{9,12}")
 # mrz has no printed label to strip - it's the raw back-side ID/MRZ block.
 _UNLABELED_FIELDS = frozenset({"mrz"})
@@ -70,3 +72,22 @@ def parse_layout_field(field_label: str, raw_text: str) -> str:
 def parse_layout_fields(fields: dict[str, str]) -> dict[str, str]:
     """Clean every field in a DocumentLayoutResult.fields dict."""
     return {label: parse_layout_field(label, text) for label, text in fields.items()}
+
+
+def is_cccd_expired(parsed_fields: dict[str, str], *, today: date | None = None) -> bool | None:
+    """Whether the card's printed expiry_date has passed, or None when
+    expiry_date wasn't parsed (field missed by YOLO/OCR) or isn't a clean
+    dd/mm/yyyy value - an unknown expiry must never be reported as "not
+    expired"."""
+    raw = parsed_fields.get("expiry_date")
+    if not raw:
+        return None
+    match = _DATE_COMPONENTS_RE.match(raw.strip())
+    if match is None:
+        return None
+    day, month, year = (int(part) for part in match.groups())
+    try:
+        expiry = date(year, month, day)
+    except ValueError:
+        return None
+    return expiry < (today or date.today())

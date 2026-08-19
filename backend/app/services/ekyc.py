@@ -10,6 +10,7 @@ from sqlmodel import Session, delete, select
 from app.adapters.security import TokenService
 from app.core.config import Settings
 from app.domain.models import AuditEvent, EkycSession, Evidence, Handoff, ReviewTask
+from app.domain.pii_masking import extract_layout_fields
 from app.domain.ports import EkycAnalyzer, EvidencePayload, EvidenceStorage
 
 TERMINAL_STAGES = {"COMPLETED", "CANCELLED", "EXPIRED", "PURGED"}
@@ -275,6 +276,20 @@ class EkycService:
         )
         self.db.commit()
         return result
+
+    def reveal_document_fields(self, session_id: uuid.UUID, reviewer_id: str) -> dict[str, Any]:
+        """Audited, no-store reveal of unmasked document.layout PII for an
+        open review task - the counterpart to the masking applied to
+        `item.analysis` by default (see app.domain.pii_masking, ADR-M0-003).
+        """
+        item = self.db.get(EkycSession, session_id)
+        review = self.db.exec(select(ReviewTask).where(ReviewTask.session_id == session_id)).first()
+        if item is None or review is None or review.status != "OPEN":
+            raise ValueError("Open review task not found")
+        revealed = extract_layout_fields(item.analysis)
+        self._audit(item.id, "REVIEWER", reviewer_id, "review.reveal_sensitive")
+        self.db.commit()
+        return {"session_id": item.id, "documents": revealed}
 
     def decide(
         self, session_id: uuid.UUID, reviewer_id: str, decision: str, notes: str
