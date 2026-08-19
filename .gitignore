@@ -33,5 +33,5 @@ backend/fieldcheck/local_cases/*
 !backend/fieldcheck/local_cases/.gitkeep
 AGENTS.md
 CLAUDE.md
-docs/IMPLEMENTATION_STATUS.md
 .claude/
+images/
